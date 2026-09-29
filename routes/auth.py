@@ -109,7 +109,12 @@ def login():
             flash('Email and password are required.', 'danger')
             return render_template('login.html')
         
-        user = User.query.filter_by(email=email).first()
+        try:
+            user = User.query.filter_by(email=email).first()
+        except Exception:
+            user = None
+            flash('Database connecting... please retry in a moment.', 'warning')
+            return render_template('login.html')
         
         # Check if Firebase is configured
         from flask import current_app

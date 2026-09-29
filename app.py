@@ -39,44 +39,56 @@ def create_app(config_name='default'):
     # Context processor
     @app.context_processor
     def inject_globals():
-        from models.setting import Setting
-        from models.issue import Issue
-        from datetime import date
         user = None
-        if 'user_id' in session:
-            user = User.query.get(session['user_id'])
-        
         notifications = []
-        if user and user.role == 'admin':
-            today = date.today()
-            overdue_count = Issue.query.filter(
-                Issue.status == 'issued',
-                Issue.due_date < today
-            ).count()
-            if overdue_count > 0:
-                notifications.append({'type': 'danger', 'message': f'{overdue_count} book(s) are overdue'})
-        elif user:
-            from models.member import Member
-            member = Member.query.filter_by(email=user.email).first()
-            if member:
-                overdue = Issue.query.filter(
-                    Issue.member_id == member.id,
-                    Issue.status == 'issued',
-                    Issue.due_date < date.today()
-                ).count()
-                if overdue > 0:
-                    notifications.append({'type': 'danger', 'message': f'You have {overdue} overdue book(s)'})
+        library_name = 'LPU Library Management'
         
-        library_name = Setting.get('library_name', 'LPU Library Management')
+        try:
+            if 'user_id' in session:
+                user = User.query.get(session['user_id'])
+            
+            if user and user.role == 'admin':
+                from models.issue import Issue
+                from datetime import date
+                today = date.today()
+                overdue_count = Issue.query.filter(
+                    Issue.status == 'issued',
+                    Issue.due_date < today
+                ).count()
+                if overdue_count > 0:
+                    notifications.append({'type': 'danger', 'message': f'{overdue_count} book(s) are overdue'})
+            elif user:
+                from models.member import Member
+                from models.issue import Issue
+                from datetime import date
+                member = Member.query.filter_by(email=user.email).first()
+                if member:
+                    overdue = Issue.query.filter(
+                        Issue.member_id == member.id,
+                        Issue.status == 'issued',
+                        Issue.due_date < date.today()
+                    ).count()
+                    if overdue > 0:
+                        notifications.append({'type': 'danger', 'message': f'You have {overdue} overdue book(s)'})
+        except Exception:
+            pass
+            
+        try:
+            from models.setting import Setting
+            val = Setting.get('library_name', 'LPU Library Management')
+            if val:
+                library_name = val
+        except Exception:
+            pass
         
         from flask import current_app
         firebase_config = {
-            'apiKey': current_app.config.get('FIREBASE_API_KEY'),
-            'authDomain': current_app.config.get('FIREBASE_AUTH_DOMAIN'),
-            'projectId': current_app.config.get('FIREBASE_PROJECT_ID'),
-            'storageBucket': current_app.config.get('FIREBASE_STORAGE_BUCKET'),
-            'messagingSenderId': current_app.config.get('FIREBASE_MESSAGING_SENDER_ID'),
-            'appId': current_app.config.get('FIREBASE_APP_ID')
+            'apiKey': current_app.config.get('FIREBASE_API_KEY') or '',
+            'authDomain': current_app.config.get('FIREBASE_AUTH_DOMAIN') or '',
+            'projectId': current_app.config.get('FIREBASE_PROJECT_ID') or '',
+            'storageBucket': current_app.config.get('FIREBASE_STORAGE_BUCKET') or '',
+            'messagingSenderId': current_app.config.get('FIREBASE_MESSAGING_SENDER_ID') or '',
+            'appId': current_app.config.get('FIREBASE_APP_ID') or ''
         }
         return dict(current_user=user, notifications=notifications, library_name=library_name, firebase_config=firebase_config)
     
@@ -91,7 +103,10 @@ def create_app(config_name='default'):
     
     @app.errorhandler(500)
     def server_error(e):
-        return render_template('errors/500.html'), 500
+        try:
+            return render_template('errors/500.html'), 500
+        except Exception:
+            return "Internal Server Error", 500
     
     with app.app_context():
         try:
@@ -108,6 +123,7 @@ def create_app(config_name='default'):
     return app
 
 app = create_app()
+handler = app
 
 if __name__ == '__main__':
     app.run(debug=True)

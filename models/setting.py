@@ -10,18 +10,27 @@ class Setting(db.Model):
     
     @staticmethod
     def get(key, default=None):
-        setting = Setting.query.filter_by(key=key).first()
-        return setting.value if setting else default
+        try:
+            setting = Setting.query.filter_by(key=key).first()
+            return setting.value if setting else default
+        except Exception:
+            return default
     
     @staticmethod
     def set(key, value):
-        setting = Setting.query.filter_by(key=key).first()
-        if setting:
-            setting.value = str(value)
-        else:
-            setting = Setting(key=key, value=str(value))
-            db.session.add(setting)
-        db.session.commit()
+        try:
+            setting = Setting.query.filter_by(key=key).first()
+            if setting:
+                setting.value = str(value)
+            else:
+                setting = Setting(key=key, value=str(value))
+                db.session.add(setting)
+            db.session.commit()
+        except Exception:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
     
     def __repr__(self):
         return f'<Setting {self.key}={self.value}>'
