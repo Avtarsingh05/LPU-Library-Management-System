@@ -57,52 +57,65 @@ def login():
         api_key = current_app.config.get('FIREBASE_API_KEY')
         
         # --- Handle Google Sign-in via id_token ---
-        if id_token and api_key and api_key != 'your_firebase_api_key_here':
-            url = f"https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={api_key}"
-            try:
-                r = requests.post(url, json={"idToken": id_token}, timeout=10)
-                if r.status_code == 200:
-                    user_data = r.json().get('users', [{}])[0]
-                    google_email = user_data.get('email')
-                    google_name = user_data.get('displayName', 'Google User')
-                    
-                    user = User.query.filter_by(email=google_email).first()
-                    if not user:
-                        # Auto-create member if they login via Google
-                        import os as built_in_os
-                        user = User(name=google_name, email=google_email, role='member')
-                        user.set_password('generated_' + built_in_os.urandom(8).hex())
-                        db.session.add(user)
-                        db.session.flush()
+        if id_token:
+            if api_key and api_key != 'your_firebase_api_key_here':
+                url = f"https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={api_key}"
+                try:
+                    r = requests.post(url, json={"idToken": id_token}, timeout=10)
+                    if r.status_code == 200:
+                        user_data = r.json().get('users', [{}])[0]
+                        google_email = user_data.get('email')
+                        google_name = user_data.get('displayName', 'Google User')
                         
+                        try:
+                            user = User.query.filter_by(email=google_email).first()
+                            if not user:
+                                # Auto-create member if they login via Google
+                                import os as built_in_os
+                                user = User(name=google_name, email=google_email, role='member')
+                                user.set_password('generated_' + built_in_os.urandom(8).hex())
+                                db.session.add(user)
+                                db.session.flush()
+                                
+                                from models.member import Member
+                                import random
+                                import string
+                                year = __import__('datetime').date.today().year
+                                suffix = ''.join(random.choices(string.digits, k=4))
+                                member_id = f'LIB{year}{suffix}'
+                                while Member.query.filter_by(member_id=member_id).first():
+                                    suffix = ''.join(random.choices(string.digits, k=4))
+                                    member_id = f'LIB{year}{suffix}'
+                                member = Member(member_id=member_id, user_id=user.id, name=google_name, email=google_email)
+                                db.session.add(member)
+                                db.session.commit()
+                        except Exception as db_err:
+                            try:
+                                db.session.rollback()
+                            except Exception:
+                                pass
+                            current_app.logger.warning(f"Database sync note on Google login: {db_err}")
+                            if not user:
+                                flash('Account verified, but database profile creation is initializing. Please click Google login again.', 'warning')
+                                return render_template('login.html')
                         
-                        from models.member import Member
-                        import random
-                        import string
-                        year = __import__('datetime').date.today().year
-                        suffix = ''.join(random.choices(string.digits, k=4))
-                        member_id = f'LIB{year}{suffix}'
-                        while Member.query.filter_by(member_id=member_id).first():
-                            suffix = ''.join(random.choices(string.digits, k=4))
-                            member_id = f'LIB{year}{suffix}'
-                        member = Member(member_id=member_id, user_id=user.id, name=google_name, email=google_email)
-                        db.session.add(member)
-                        db.session.commit()
+                        session.permanent = True
+                        session['user_id'] = user.id
+                        session['user_name'] = user.name
+                        session['user_role'] = user.role
+                        session['user_email'] = user.email
                         
-                    session.permanent = True
-                    session['user_id'] = user.id
-                    session['user_name'] = user.name
-                    session['user_role'] = user.role
-                    session['user_email'] = user.email
-                    
-                    flash(f'Welcome back, {user.name}!', 'success')
-                    return redirect(url_for('dashboard.index'))
-                else:
-                    flash('Google Authentication failed.', 'danger')
+                        flash(f'Welcome back, {user.name}!', 'success')
+                        return redirect(url_for('dashboard.index'))
+                    else:
+                        flash('Google account verification failed. Please try again.', 'danger')
+                        return render_template('login.html')
+                except requests.exceptions.RequestException:
+                    flash('Google Authentication network timeout. Please retry.', 'danger')
                     return render_template('login.html')
-            except Exception:
-                flash('Authentication service unavailable.', 'danger')
-                return render_template('login.html')
+                except Exception as ex:
+                    flash(f'Authentication error: {ex}', 'danger')
+                    return render_template('login.html')
 
         # --- Handle standard Email/Password Sign-in ---
         if not email or not password:
@@ -112,32 +125,36 @@ def login():
         try:
             user = User.query.filter_by(email=email).first()
         except Exception:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
             user = None
-            flash('Database connecting... please retry in a moment.', 'warning')
-            return render_template('login.html')
-        
-        # Check if Firebase is configured
-        from flask import current_app
-        import requests
-        api_key = current_app.config.get('FIREBASE_API_KEY')
         
         is_authenticated = False
         
-        if api_key and api_key != 'your_firebase_api_key_here':
-            # Use Firebase REST API to authenticate
+        # 1. First check local database credentials (e.g. Admin: avtar10@admin.com / Avtar@10)
+        if user and user.check_password(password):
+            is_authenticated = True
+            
+        # 2. If not authenticated locally and Firebase is configured, check Firebase Auth
+        if not is_authenticated and api_key and api_key != 'your_firebase_api_key_here':
             url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={api_key}"
             payload = {"email": email, "password": password, "returnSecureToken": True}
             try:
                 r = requests.post(url, json=payload, timeout=10)
                 if r.status_code == 200:
                     is_authenticated = True
+                    if not user:
+                        try:
+                            user = User(name=email.split('@')[0], email=email, role='member')
+                            user.set_password(password)
+                            db.session.add(user)
+                            db.session.commit()
+                        except Exception:
+                            db.session.rollback()
             except requests.exceptions.RequestException:
-                flash('Authentication service is currently unavailable.', 'danger')
-                return render_template('login.html')
-        else:
-            # Fallback to local DB check if Firebase is not configured
-            if user and user.check_password(password):
-                is_authenticated = True
+                pass
 
         if is_authenticated and user:
             if not user.is_active:
