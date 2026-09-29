@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, request, session, flash
+from flask import Blueprint, render_template, redirect, url_for, request, session, flash, jsonify
 from models import db
 from models.user import User
 from models.member import Member
@@ -235,3 +235,35 @@ def onboarding():
         'Physics', 'Chemistry', 'Management', 'Commerce', 'Arts', 'Other'
     ]
     return render_template('onboarding.html', departments=DEPARTMENTS, member=member)
+
+@auth_bp.route('/init-admin')
+def init_admin():
+    from models.user import User
+    results = {}
+    try:
+        from flask import current_app
+        raw_uri = current_app.config.get('SQLALCHEMY_DATABASE_URI', '')
+        # Obfuscate password in output
+        results['db_type'] = raw_uri.split('://')[0] if '://' in raw_uri else 'unknown'
+        db.create_all()
+        admin = User.query.filter_by(email='avtar10@admin.com').first()
+        if not admin:
+            admin = User(name='System Admin', email='avtar10@admin.com', role='admin')
+            admin.set_password('Avtar@10')
+            db.session.add(admin)
+            db.session.commit()
+            results['status'] = 'Created avtar10@admin.com successfully!'
+        else:
+            admin.set_password('Avtar@10')
+            db.session.commit()
+            results['status'] = 'Updated avtar10@admin.com password successfully!'
+        results['admin_id'] = admin.id
+        results['role'] = admin.role
+    except Exception as e:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        results['error'] = str(e)
+        results['error_type'] = str(type(e))
+    return jsonify(results)
