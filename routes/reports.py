@@ -1,73 +1,83 @@
+"""
+Reports routes — fully migrated to Firestore.
+"""
 from flask import Blueprint, render_template, request, make_response
-from models import db
 from models.book import Book
 from models.member import Member
 from models.issue import Issue
 from models.fine import Fine
 from routes.auth import admin_required
 from datetime import date, timedelta, datetime
-from sqlalchemy import func
+from collections import Counter
 import csv
 import io
 
 reports_bp = Blueprint('reports', __name__, url_prefix='/reports')
+
 
 @reports_bp.route('/')
 @admin_required
 def index():
     period = request.args.get('period', 'month')
     today = date.today()
-    
+
     if period == 'today':
         start_date = today
     elif period == 'week':
         start_date = today - timedelta(days=7)
-    elif period == 'month':
-        start_date = today - timedelta(days=30)
     elif period == 'year':
         start_date = today - timedelta(days=365)
-    else:
+    else:  # month
         start_date = today - timedelta(days=30)
-    
-    # Most borrowed books
-    most_borrowed = db.session.query(
-        Book.title, Book.author, func.count(Issue.id).label('borrow_count')
-    ).join(Issue, Issue.book_id == Book.id).filter(
-        Issue.issue_date >= start_date
-    ).group_by(Book.id).order_by(func.count(Issue.id).desc()).limit(10).all()
-    
-    # Most active members
-    most_active = db.session.query(
-        Member.name, Member.member_id, func.count(Issue.id).label('issue_count')
-    ).join(Issue, Issue.member_id == Member.id).filter(
-        Issue.issue_date >= start_date
-    ).group_by(Member.id).order_by(func.count(Issue.id).desc()).limit(10).all()
-    
-    # Overdue books
-    overdue_issues = Issue.query.filter(
-        Issue.status == 'issued',
-        Issue.due_date < today
-    ).order_by(Issue.due_date.asc()).all()
-    
+
+    all_issues = Issue.get_all()
+    all_fines = Fine.get_all()
+    all_books = Book.get_all()
+
+    # Filter issues by period
+    period_issues = [i for i in all_issues
+                     if i.issue_date and i.issue_date >= start_date]
+
+    # Most borrowed books in period
+    book_counts = Counter(i.book_id for i in period_issues)
+    book_map = {b.id: b for b in all_books}
+    most_borrowed = []
+    for bid, cnt in book_counts.most_common(10):
+        b = book_map.get(bid)
+        if b:
+            most_borrowed.append((b.title, b.author, cnt))
+
+    # Most active members in period
+    member_counts = Counter(i.member_id for i in period_issues)
+    member_map = {m.id: m for m in Member.get_all()}
+    most_active = []
+    for mid, cnt in member_counts.most_common(10):
+        m = member_map.get(mid)
+        if m:
+            most_active.append((m.name, m.member_id, cnt))
+
+    # Overdue issues
+    overdue_issues = Issue.get_overdue()
+
     # Summary stats
-    total_issued = Issue.query.filter(Issue.issue_date >= start_date).count()
-    total_returned = Issue.query.filter(
-        Issue.status == 'returned',
-        Issue.return_date >= start_date
-    ).count()
-    fine_collected = db.session.query(func.sum(Fine.amount)).filter(
-        Fine.status == 'paid',
-        Fine.paid_date >= datetime.combine(start_date, datetime.min.time())
-    ).scalar() or 0
-    
-    # Category statistics
-    category_stats = db.session.query(
-        Book.category,
-        func.count(Book.id).label('book_count'),
-        func.sum(Book.total_copies).label('total_copies'),
-        func.sum(Book.available_copies).label('available_copies')
-    ).group_by(Book.category).all()
-    
+    total_issued = len(period_issues)
+    total_returned = len([i for i in period_issues
+                          if i.status == 'returned' and i.return_date and i.return_date >= start_date])
+    fine_collected = sum(f.amount for f in all_fines
+                         if f.status == 'paid' and f.paid_date and
+                         _dt_to_date(f.paid_date) >= start_date)
+
+    # Category stats
+    cat_data = {}
+    for b in all_books:
+        if b.category not in cat_data:
+            cat_data[b.category] = {'book_count': 0, 'total_copies': 0, 'available_copies': 0}
+        cat_data[b.category]['book_count'] += 1
+        cat_data[b.category]['total_copies'] += b.total_copies
+        cat_data[b.category]['available_copies'] += b.available_copies
+    category_stats = [(cat, v['book_count'], v['total_copies'], v['available_copies'])
+                      for cat, v in cat_data.items()]
+
     return render_template('reports/index.html',
         period=period,
         start_date=start_date,
@@ -78,65 +88,77 @@ def index():
         total_issued=total_issued,
         total_returned=total_returned,
         fine_collected=fine_collected,
-        category_stats=category_stats
+        category_stats=category_stats,
     )
+
+
+def _dt_to_date(val):
+    if isinstance(val, date):
+        return val
+    if hasattr(val, 'date'):
+        return val.date()
+    return date.min
+
 
 @reports_bp.route('/export/issued')
 @admin_required
 def export_issued():
     period = request.args.get('period', 'month')
     today = date.today()
-    start_date = today - timedelta(days=30) if period == 'month' else today - timedelta(days=365)
-    
-    issues = Issue.query.filter(Issue.issue_date >= start_date).all()
-    
+    start_date = today - timedelta(days=30 if period == 'month' else 365)
+
+    issues = [i for i in Issue.get_all() if i.issue_date and i.issue_date >= start_date]
+
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(['Issue ID', 'Book Title', 'Book ISBN', 'Member Name', 'Member ID',
                      'Issue Date', 'Due Date', 'Return Date', 'Status', 'Fine Amount'])
-    
-    for issue in issues:
+    for i in issues:
+        b = i.book
+        m = i.member
         writer.writerow([
-            issue.id,
-            issue.book.title,
-            issue.book.isbn,
-            issue.member.name,
-            issue.member.member_id,
-            issue.issue_date,
-            issue.due_date,
-            issue.return_date or '',
-            issue.status,
-            issue.fine_amount
+            i.id,
+            b.title if b else '',
+            b.isbn if b else '',
+            m.name if m else '',
+            m.member_id if m else '',
+            i.issue_date,
+            i.due_date,
+            i.return_date or '',
+            i.status,
+            i.fine_amount,
         ])
-    
+
     response = make_response(output.getvalue())
     response.headers['Content-Disposition'] = 'attachment; filename=issued_books_report.csv'
     response.headers['Content-Type'] = 'text/csv'
     return response
 
+
 @reports_bp.route('/export/fines')
 @admin_required
 def export_fines():
-    fines = Fine.query.all()
-    
+    fines = Fine.get_all()
+
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(['Fine ID', 'Member Name', 'Member ID', 'Book Title', 'Amount',
                      'Reason', 'Status', 'Created At', 'Paid Date'])
-    
-    for fine in fines:
+    for f in fines:
+        m = f.member
+        iss = f.issue
         writer.writerow([
-            fine.id,
-            fine.member.name,
-            fine.member.member_id,
-            fine.issue.book.title,
-            fine.amount,
-            fine.reason,
-            fine.status,
-            fine.created_at,
-            fine.paid_date or ''
+            f.id,
+            m.name if m else '',
+            m.member_id if m else '',
+            iss.book.title if iss and iss.book else '',
+            f.amount,
+            f.reason,
+            f.status,
+            f.created_at,
+            f.paid_date or '',
         ])
-    
+
     response = make_response(output.getvalue())
     response.headers['Content-Disposition'] = 'attachment; filename=fines_report.csv'
     response.headers['Content-Type'] = 'text/csv'

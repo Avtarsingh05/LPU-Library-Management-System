@@ -1,35 +1,150 @@
-from . import db
+"""
+Member model backed by Firestore.
+Collection: 'members'
+Document ID: auto-generated UUID
+"""
+from models import get_db
 from datetime import datetime
+import uuid
 
-class Member(db.Model):
-    __tablename__ = 'members'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    member_id = db.Column(db.String(20), unique=True, nullable=False, index=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    name = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False, index=True)
-    phone = db.Column(db.String(20))
-    department = db.Column(db.String(100))
-    course = db.Column(db.String(100))
-    semester = db.Column(db.String(20))
-    address = db.Column(db.Text)
-    registration_date = db.Column(db.DateTime, default=datetime.utcnow)
-    status = db.Column(db.String(20), default='active')  # active, inactive, suspended
-    
-    # Relationships
-    issues = db.relationship('Issue', backref='member', lazy='dynamic', foreign_keys='Issue.member_id')
-    reservations = db.relationship('Reservation', backref='member', lazy='dynamic')
-    fines = db.relationship('Fine', backref='member', lazy='dynamic')
-    user = db.relationship('User', backref='member_profile', foreign_keys=[user_id])
-    
+
+class Member:
+    COLLECTION = 'members'
+
+    def __init__(self, id=None, member_id='', user_id=None, name='', email='',
+                 phone='', department='', course='', semester='', address='',
+                 registration_date=None, status='active'):
+        self.id = id or str(uuid.uuid4())
+        self.member_id = member_id
+        self.user_id = user_id
+        self.name = name
+        self.email = email
+        self.phone = phone
+        self.department = department
+        self.course = course
+        self.semester = semester
+        self.address = address
+        self.registration_date = registration_date or datetime.utcnow()
+        self.status = status
+
     @property
     def active_issues_count(self):
-        return self.issues.filter_by(status='issued').count()
-    
+        from models.issue import Issue
+        return len(Issue.get_by_member(self.id, status='issued'))
+
     @property
     def total_fines(self):
-        return sum(f.amount for f in self.fines.filter_by(status='pending').all())
-    
+        from models.fine import Fine
+        fines = Fine.get_by_member(self.id, status='pending')
+        return sum(f.amount for f in fines)
+
+    # ── Persistence ──────────────────────────────────────────────────────────
+    def _to_dict(self):
+        return {
+            'id': self.id,
+            'member_id': self.member_id,
+            'user_id': self.user_id,
+            'name': self.name,
+            'email': self.email,
+            'phone': self.phone,
+            'department': self.department,
+            'course': self.course,
+            'semester': self.semester,
+            'address': self.address,
+            'registration_date': self.registration_date,
+            'status': self.status,
+        }
+
+    def save(self):
+        get_db().collection(self.COLLECTION).document(self.id).set(self._to_dict())
+        return self
+
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+        get_db().collection(self.COLLECTION).document(self.id).update(kwargs)
+        return self
+
+    # ── Class-level queries ──────────────────────────────────────────────────
+    @classmethod
+    def _from_doc(cls, doc):
+        d = doc.to_dict()
+        if not d:
+            return None
+        return cls(
+            id=d.get('id', doc.id),
+            member_id=d.get('member_id', ''),
+            user_id=d.get('user_id'),
+            name=d.get('name', ''),
+            email=d.get('email', ''),
+            phone=d.get('phone', ''),
+            department=d.get('department', ''),
+            course=d.get('course', ''),
+            semester=d.get('semester', ''),
+            address=d.get('address', ''),
+            registration_date=d.get('registration_date'),
+            status=d.get('status', 'active'),
+        )
+
+    @classmethod
+    def get_by_id(cls, mid):
+        doc = get_db().collection(cls.COLLECTION).document(mid).get()
+        if doc.exists:
+            return cls._from_doc(doc)
+        return None
+
+    @classmethod
+    def get_by_email(cls, email):
+        docs = get_db().collection(cls.COLLECTION)\
+                       .where('email', '==', email).limit(1).stream()
+        for doc in docs:
+            return cls._from_doc(doc)
+        return None
+
+    @classmethod
+    def get_by_user_id(cls, user_id):
+        docs = get_db().collection(cls.COLLECTION)\
+                       .where('user_id', '==', user_id).limit(1).stream()
+        for doc in docs:
+            return cls._from_doc(doc)
+        return None
+
+    @classmethod
+    def get_by_member_id(cls, member_id):
+        docs = get_db().collection(cls.COLLECTION)\
+                       .where('member_id', '==', member_id).limit(1).stream()
+        for doc in docs:
+            return cls._from_doc(doc)
+        return None
+
+    @classmethod
+    def get_all(cls):
+        docs = get_db().collection(cls.COLLECTION).stream()
+        members = [cls._from_doc(d) for d in docs if d.to_dict()]
+        members.sort(key=lambda m: m.registration_date or datetime.min, reverse=True)
+        return members
+
+    @classmethod
+    def search(cls, query_text='', status='', department=''):
+        all_members = cls.get_all()
+        q = query_text.lower() if query_text else ''
+        result = []
+        for m in all_members:
+            if q and not (q in m.name.lower() or q in m.email.lower()
+                          or q in m.member_id.lower()
+                          or q in (m.phone or '').lower()):
+                continue
+            if status and m.status != status:
+                continue
+            if department and m.department != department:
+                continue
+            result.append(m)
+        return result
+
+    @classmethod
+    def count(cls):
+        docs = get_db().collection(cls.COLLECTION).stream()
+        return sum(1 for _ in docs)
+
     def __repr__(self):
         return f'<Member {self.member_id}: {self.name}>'

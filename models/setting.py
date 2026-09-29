@@ -1,36 +1,33 @@
-from . import db
+"""
+Setting model backed by Firestore.
+Collection: 'settings'
+Document ID: the setting key itself (e.g. 'library_name')
+"""
+from models import get_db
 
-class Setting(db.Model):
-    __tablename__ = 'settings'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    key = db.Column(db.String(100), unique=True, nullable=False)
-    value = db.Column(db.String(500))
-    description = db.Column(db.String(200))
-    
+
+class Setting:
+    COLLECTION = 'settings'
+
     @staticmethod
     def get(key, default=None):
         try:
-            setting = Setting.query.filter_by(key=key).first()
-            return setting.value if setting else default
+            doc = get_db().collection(Setting.COLLECTION).document(key).get()
+            if doc.exists:
+                return doc.to_dict().get('value', default)
         except Exception:
-            return default
-    
+            pass
+        return default
+
     @staticmethod
     def set(key, value):
         try:
-            setting = Setting.query.filter_by(key=key).first()
-            if setting:
-                setting.value = str(value)
-            else:
-                setting = Setting(key=key, value=str(value))
-                db.session.add(setting)
-            db.session.commit()
+            get_db().collection(Setting.COLLECTION).document(key).set({
+                'key': key,
+                'value': str(value),
+            })
         except Exception:
-            try:
-                db.session.rollback()
-            except Exception:
-                pass
-    
+            pass
+
     def __repr__(self):
-        return f'<Setting {self.key}={self.value}>'
+        return f'<Setting>'

@@ -1,9 +1,11 @@
+"""
+Books routes — fully migrated to Firestore.
+Uses simple Pagination helper class (no SQLAlchemy paginate()).
+"""
 from flask import Blueprint, render_template, redirect, url_for, request, flash, jsonify
-from models import db
 from models.book import Book
 from models.issue import Issue
 from routes.auth import login_required, admin_required
-from sqlalchemy import or_
 
 books_bp = Blueprint('books', __name__, url_prefix='/books')
 
@@ -16,6 +18,33 @@ CATEGORIES = [
 
 LANGUAGES = ['English', 'Hindi', 'French', 'German', 'Spanish', 'Other']
 
+
+class Pagination:
+    """Minimal pagination helper to replace SQLAlchemy's paginate()."""
+    def __init__(self, items, page, per_page):
+        self.page = page
+        self.per_page = per_page
+        self.total = len(items)
+        self.pages = max(1, (self.total + per_page - 1) // per_page)
+        start = (page - 1) * per_page
+        self.items = items[start: start + per_page]
+        self.has_prev = page > 1
+        self.has_next = page < self.pages
+        self.prev_num = page - 1
+        self.next_num = page + 1
+
+    def iter_pages(self, left_edge=2, right_edge=2, left_current=2, right_current=3):
+        last = 0
+        for num in range(1, self.pages + 1):
+            if (num <= left_edge or
+                    (self.page - left_current - 1 < num < self.page + right_current) or
+                    num > self.pages - right_edge):
+                if last + 1 != num:
+                    yield None
+                yield num
+                last = num
+
+
 @books_bp.route('/')
 @login_required
 def index():
@@ -25,53 +54,16 @@ def index():
     availability = request.args.get('availability', '')
     language = request.args.get('language', '')
     sort = request.args.get('sort', 'title_asc')
-    
-    query = Book.query
-    
-    if search:
-        query = query.filter(
-            or_(
-                Book.title.ilike(f'%{search}%'),
-                Book.author.ilike(f'%{search}%'),
-                Book.isbn.ilike(f'%{search}%')
-            )
-        )
-    
-    if category:
-        query = query.filter_by(category=category)
-    
-    if availability == 'available':
-        query = query.filter(Book.available_copies > 0)
-    elif availability == 'unavailable':
-        query = query.filter(Book.available_copies == 0)
-    
-    if language:
-        query = query.filter_by(language=language)
-    
-    # Sorting
-    if sort == 'title_asc':
-        query = query.order_by(Book.title.asc())
-    elif sort == 'title_desc':
-        query = query.order_by(Book.title.desc())
-    elif sort == 'newest':
-        query = query.order_by(Book.created_at.desc())
-    elif sort == 'oldest':
-        query = query.order_by(Book.created_at.asc())
-    elif sort == 'available_first':
-        query = query.order_by(Book.available_copies.desc())
-    
-    books = query.paginate(page=page, per_page=15, error_out=False)
-    
+
+    all_books = Book.search(search, category=category, availability=availability,
+                            language=language, sort=sort)
+    books = Pagination(all_books, page, per_page=15)
+
     return render_template('books/index.html',
-        books=books,
-        search=search,
-        category=category,
-        availability=availability,
-        language=language,
-        sort=sort,
-        categories=CATEGORIES,
-        languages=LANGUAGES
-    )
+        books=books, search=search, category=category,
+        availability=availability, language=language, sort=sort,
+        categories=CATEGORIES, languages=LANGUAGES)
+
 
 @books_bp.route('/add', methods=['GET', 'POST'])
 @admin_required
@@ -88,22 +80,22 @@ def add():
         shelf_location = request.form.get('shelf_location', '').strip()
         description = request.form.get('description', '').strip()
         cover_image = request.form.get('cover_image', '').strip()
-        
+
         errors = []
         if not isbn: errors.append('ISBN is required.')
         if not title: errors.append('Title is required.')
         if not author: errors.append('Author is required.')
         if not category: errors.append('Category is required.')
         if total_copies < 1: errors.append('Total copies must be at least 1.')
-        
-        if Book.query.filter_by(isbn=isbn).first():
+        if Book.get_by_isbn(isbn):
             errors.append(f'A book with ISBN {isbn} already exists.')
-        
+
         if errors:
             for e in errors:
                 flash(e, 'danger')
-            return render_template('books/add.html', categories=CATEGORIES, languages=LANGUAGES, form_data=request.form)
-        
+            return render_template('books/add.html', categories=CATEGORIES,
+                                   languages=LANGUAGES, form_data=request.form)
+
         book = Book(
             isbn=isbn, title=title, author=author, category=category,
             publisher=publisher, publication_year=publication_year,
@@ -111,25 +103,33 @@ def add():
             available_copies=total_copies, shelf_location=shelf_location,
             description=description, cover_image=cover_image
         )
-        db.session.add(book)
-        db.session.commit()
+        book.save()
         flash(f'Book "{title}" added successfully!', 'success')
         return redirect(url_for('books.view', id=book.id))
-    
-    return render_template('books/add.html', categories=CATEGORIES, languages=LANGUAGES, form_data={})
 
-@books_bp.route('/<int:id>')
+    return render_template('books/add.html', categories=CATEGORIES,
+                           languages=LANGUAGES, form_data={})
+
+
+@books_bp.route('/<id>')
 @login_required
 def view(id):
-    book = Book.query.get_or_404(id)
-    active_issues = Issue.query.filter_by(book_id=id, status='issued').all()
+    book = Book.get_by_id(id)
+    if not book:
+        flash('Book not found.', 'danger')
+        return redirect(url_for('books.index'))
+    active_issues = Issue.get_by_book(id, status='issued')
     return render_template('books/view.html', book=book, active_issues=active_issues)
 
-@books_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
+
+@books_bp.route('/<id>/edit', methods=['GET', 'POST'])
 @admin_required
 def edit(id):
-    book = Book.query.get_or_404(id)
-    
+    book = Book.get_by_id(id)
+    if not book:
+        flash('Book not found.', 'danger')
+        return redirect(url_for('books.index'))
+
     if request.method == 'POST':
         isbn = request.form.get('isbn', '').strip()
         title = request.form.get('title', '').strip()
@@ -142,62 +142,62 @@ def edit(id):
         shelf_location = request.form.get('shelf_location', '').strip()
         description = request.form.get('description', '').strip()
         cover_image = request.form.get('cover_image', '').strip()
-        
+
         errors = []
         if not isbn: errors.append('ISBN is required.')
         if not title: errors.append('Title is required.')
         if not author: errors.append('Author is required.')
         if not category: errors.append('Category is required.')
         if total_copies < 1: errors.append('Total copies must be at least 1.')
-        
-        existing = Book.query.filter_by(isbn=isbn).first()
+
+        existing = Book.get_by_isbn(isbn)
         if existing and existing.id != id:
             errors.append(f'Another book with ISBN {isbn} already exists.')
-        
+
         issued_count = book.total_copies - book.available_copies
         if total_copies < issued_count:
             errors.append(f'Cannot reduce copies below currently issued count ({issued_count}).')
-        
+
         if errors:
             for e in errors:
                 flash(e, 'danger')
-            return render_template('books/edit.html', book=book, categories=CATEGORIES, languages=LANGUAGES)
-        
+            return render_template('books/edit.html', book=book,
+                                   categories=CATEGORIES, languages=LANGUAGES)
+
         diff = total_copies - book.total_copies
-        book.isbn = isbn
-        book.title = title
-        book.author = author
-        book.category = category
-        book.publisher = publisher
-        book.publication_year = publication_year
-        book.language = language
-        book.total_copies = total_copies
-        book.available_copies = book.available_copies + diff
-        book.shelf_location = shelf_location
-        book.description = description
-        book.cover_image = cover_image
-        
-        db.session.commit()
+        book.update(
+            isbn=isbn, title=title, author=author, category=category,
+            publisher=publisher, publication_year=publication_year,
+            language=language, total_copies=total_copies,
+            available_copies=book.available_copies + diff,
+            shelf_location=shelf_location, description=description,
+            cover_image=cover_image
+        )
         flash(f'Book "{title}" updated successfully!', 'success')
         return redirect(url_for('books.view', id=book.id))
-    
-    return render_template('books/edit.html', book=book, categories=CATEGORIES, languages=LANGUAGES)
 
-@books_bp.route('/<int:id>/delete', methods=['POST'])
+    return render_template('books/edit.html', book=book,
+                           categories=CATEGORIES, languages=LANGUAGES)
+
+
+@books_bp.route('/<id>/delete', methods=['POST'])
 @admin_required
 def delete(id):
-    book = Book.query.get_or_404(id)
-    
-    active_issues = Issue.query.filter_by(book_id=id, status='issued').count()
-    if active_issues > 0:
-        flash(f'Cannot delete "{book.title}" — it has {active_issues} active issue(s).', 'danger')
+    book = Book.get_by_id(id)
+    if not book:
+        flash('Book not found.', 'danger')
+        return redirect(url_for('books.index'))
+
+    active_issues = Issue.get_by_book(id, status='issued')
+    if active_issues:
+        flash(f'Cannot delete "{book.title}" — it has {len(active_issues)} active issue(s).', 'danger')
         return redirect(url_for('books.view', id=id))
-    
+
     title = book.title
-    db.session.delete(book)
-    db.session.commit()
+    book.delete()
     flash(f'Book "{title}" deleted successfully.', 'success')
     return redirect(url_for('books.index'))
+
 
 @books_bp.route('/search')
 @login_required
@@ -205,15 +205,8 @@ def search():
     q = request.args.get('q', '').strip()
     if not q:
         return jsonify([])
-    
-    books = Book.query.filter(
-        or_(
-            Book.title.ilike(f'%{q}%'),
-            Book.author.ilike(f'%{q}%'),
-            Book.isbn.ilike(f'%{q}%')
-        )
-    ).limit(10).all()
-    
+
+    results = Book.search(q)[:10]
     return jsonify([{
         'id': b.id,
         'title': b.title,
@@ -221,4 +214,4 @@ def search():
         'isbn': b.isbn,
         'available': b.available_copies > 0,
         'available_copies': b.available_copies
-    } for b in books])
+    } for b in results])
