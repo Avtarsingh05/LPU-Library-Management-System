@@ -95,6 +95,13 @@ def create_app(config_name='default'):
     
     with app.app_context():
         db.create_all()
+        
+        from models.user import User
+        if not User.query.filter_by(role='admin').first():
+            admin = User(name='System Admin', email='avtar10@admin.com', role='admin')
+            admin.set_password('Avtar@10')
+            db.session.add(admin)
+            db.session.commit()
     
     return app
 
