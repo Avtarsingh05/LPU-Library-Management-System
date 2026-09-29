@@ -3,9 +3,23 @@ from datetime import timedelta
 
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'lms-secret-key-2024-change-in-production'
-    db_url = os.environ.get('DATABASE_URL') or 'sqlite:///library.db'
-    if db_url.startswith('postgres://'):
-        db_url = db_url.replace('postgres://', 'postgresql://', 1)
+    
+    raw_db_url = os.environ.get('DATABASE_URL')
+    if raw_db_url:
+        # Standardize PostgreSQL URLs for SQLAlchemy with pg8000 (pure-python, Vercel-compatible)
+        if raw_db_url.startswith('postgres://'):
+            db_url = raw_db_url.replace('postgres://', 'postgresql+pg8000://', 1)
+        elif raw_db_url.startswith('postgresql://') and not raw_db_url.startswith('postgresql+'):
+            db_url = raw_db_url.replace('postgresql://', 'postgresql+pg8000://', 1)
+        else:
+            db_url = raw_db_url
+    else:
+        # If on Vercel / AWS Lambda without custom DB, use writable /tmp directory
+        if os.environ.get('VERCEL') or os.environ.get('AWS_LAMBDA_FUNCTION_NAME'):
+            db_url = 'sqlite:////tmp/library.db'
+        else:
+            db_url = 'sqlite:///library.db'
+            
     SQLALCHEMY_DATABASE_URI = db_url
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     PERMANENT_SESSION_LIFETIME = timedelta(hours=24)
@@ -18,7 +32,7 @@ class Config:
     
     # Library Settings (can be overridden from DB)
     LIBRARY_NAME = 'LPU Library Management'
-    LIBRARY_ADDRESS = 'Lovely Professional University, Phagwara'
+    LIBRARY_ADDRESS = '123 University Road, Academic City'
     LIBRARY_EMAIL = 'library@university.edu'
     LIBRARY_PHONE = '+91-9876543210'
     FINE_PER_DAY = 5  # INR

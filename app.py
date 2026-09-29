@@ -94,14 +94,16 @@ def create_app(config_name='default'):
         return render_template('errors/500.html'), 500
     
     with app.app_context():
-        db.create_all()
-        
-        from models.user import User
-        if not User.query.filter_by(role='admin').first():
-            admin = User(name='System Admin', email='avtar10@admin.com', role='admin')
-            admin.set_password('Avtar@10')
-            db.session.add(admin)
-            db.session.commit()
+        try:
+            db.create_all()
+            from models.user import User
+            if not User.query.filter_by(role='admin').first():
+                admin = User(name='System Admin', email='avtar10@admin.com', role='admin')
+                admin.set_password('Avtar@10')
+                db.session.add(admin)
+                db.session.commit()
+        except Exception as e:
+            app.logger.warning(f"Database initialization warning: {e}")
     
     return app
 
