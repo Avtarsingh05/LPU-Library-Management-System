@@ -13,10 +13,15 @@
   const sidebar = document.querySelector('.sidebar');
   const sidebarOverlay = document.getElementById('sidebarOverlay');
 
+  const lmsWrapper = document.querySelector('.lms-wrapper');
   if (menuToggle && sidebar) {
     menuToggle.addEventListener('click', function() {
-      sidebar.classList.toggle('open');
-      if (sidebarOverlay) sidebarOverlay.classList.toggle('show');
+      if (window.innerWidth <= 768) {
+        sidebar.classList.toggle('open');
+        if (sidebarOverlay) sidebarOverlay.classList.toggle('show');
+      } else {
+        if (lmsWrapper) lmsWrapper.classList.toggle('sidebar-collapsed');
+      }
     });
   }
 

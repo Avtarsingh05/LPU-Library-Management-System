@@ -94,11 +94,30 @@ def add():
             if User.query.filter_by(email=email).first():
                 flash('A login account with this email already exists.', 'warning')
             else:
-                user = User(name=name, email=email, role='member')
-                user.set_password(password)
-                db.session.add(user)
-                db.session.flush()
-                user_id = user.id
+                from flask import current_app
+                import requests
+                api_key = current_app.config.get('FIREBASE_API_KEY')
+                
+                firebase_success = True
+                if api_key and api_key != 'your_firebase_api_key_here':
+                    url = f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={api_key}"
+                    payload = {"email": email, "password": password, "returnSecureToken": True}
+                    try:
+                        r = requests.post(url, json=payload, timeout=10)
+                        if r.status_code != 200:
+                            firebase_success = False
+                            error_msg = r.json().get('error', {}).get('message', 'Firebase Error')
+                            flash(f'Firebase Error: {error_msg}', 'danger')
+                    except Exception as e:
+                        firebase_success = False
+                        flash('Failed to connect to Firebase Auth.', 'danger')
+                
+                if firebase_success:
+                    user = User(name=name, email=email, role='member')
+                    user.set_password(password)
+                    db.session.add(user)
+                    db.session.flush()
+                    user_id = user.id
         
         member = Member(
             member_id=member_id, user_id=user_id, name=name, email=email,

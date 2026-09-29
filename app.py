@@ -68,7 +68,17 @@ def create_app(config_name='default'):
                     notifications.append({'type': 'danger', 'message': f'You have {overdue} overdue book(s)'})
         
         library_name = Setting.get('library_name', 'LPU Library Management')
-        return dict(current_user=user, notifications=notifications, library_name=library_name)
+        
+        from flask import current_app
+        firebase_config = {
+            'apiKey': current_app.config.get('FIREBASE_API_KEY'),
+            'authDomain': current_app.config.get('FIREBASE_AUTH_DOMAIN'),
+            'projectId': current_app.config.get('FIREBASE_PROJECT_ID'),
+            'storageBucket': current_app.config.get('FIREBASE_STORAGE_BUCKET'),
+            'messagingSenderId': current_app.config.get('FIREBASE_MESSAGING_SENDER_ID'),
+            'appId': current_app.config.get('FIREBASE_APP_ID')
+        }
+        return dict(current_user=user, notifications=notifications, library_name=library_name, firebase_config=firebase_config)
     
     # Error handlers
     @app.errorhandler(404)
