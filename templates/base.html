@@ -95,8 +95,8 @@
 
     <div class="sidebar-footer">
       {% if current_user %}
-      <div style="font-size:0.78rem; color:rgba(255,255,255,0.5); margin-bottom:0.75rem;">
-        <div style="font-weight:600; color:rgba(255,255,255,0.8);">{{ current_user.name }}</div>
+      <div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.75rem;">
+        <div style="font-weight:600; color:var(--text-primary);">{{ current_user.name }}</div>
         <div>{{ current_user.role | capitalize }}</div>
       </div>
       {% endif %}
@@ -116,7 +116,7 @@
     <header class="topbar">
       <div class="topbar-left">
         <button class="menu-toggle" id="menuToggle" aria-label="Toggle sidebar">
-          <i class="bi bi-list"></i>
+          <i class="bi bi-three-dots-vertical"></i>
         </button>
         <div class="topbar-search">
           <i class="bi bi-search search-icon"></i>

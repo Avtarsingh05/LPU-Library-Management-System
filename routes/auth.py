@@ -12,6 +12,15 @@ def login_required(f):
         if 'user_id' not in session:
             flash('Please log in to access this page.', 'warning')
             return redirect(url_for('auth.login', next=request.url))
+        
+        # Check onboarding for members
+        if request.endpoint != 'auth.onboarding' and session.get('user_role') == 'member':
+            user_id = session.get('user_id')
+            member = Member.query.filter_by(user_id=user_id).first()
+            if member and not member.department:
+                flash('Please complete your profile details to continue.', 'info')
+                return redirect(url_for('auth.onboarding'))
+                
         return f(*args, **kwargs)
     return decorated_function
 
@@ -66,11 +75,16 @@ def login():
                         db.session.add(user)
                         db.session.flush()
                         
-                        from routes.members import generate_member_id
+                        
                         from models.member import Member
-                        member_id = generate_member_id()
+                        import random
+                        import string
+                        year = __import__('datetime').date.today().year
+                        suffix = ''.join(random.choices(string.digits, k=4))
+                        member_id = f'LIB{year}{suffix}'
                         while Member.query.filter_by(member_id=member_id).first():
-                            member_id = generate_member_id()
+                            suffix = ''.join(random.choices(string.digits, k=4))
+                            member_id = f'LIB{year}{suffix}'
                         member = Member(member_id=member_id, user_id=user.id, name=google_name, email=google_email)
                         db.session.add(member)
                         db.session.commit()
@@ -148,3 +162,54 @@ def logout():
     session.clear()
     flash(f'You have been logged out successfully. Goodbye, {user_name}!', 'info')
     return redirect(url_for('auth.login'))
+
+@auth_bp.route('/onboarding', methods=['GET', 'POST'])
+def onboarding():
+    if 'user_id' not in session:
+        return redirect(url_for('auth.login'))
+        
+    if session.get('user_role') != 'member':
+        return redirect(url_for('dashboard.index'))
+        
+    user_id = session['user_id']
+    member = Member.query.filter_by(user_id=user_id).first()
+    
+    if not member:
+        return redirect(url_for('auth.login'))
+        
+    if member.department and request.method == 'GET':
+        # Already onboarded
+        return redirect(url_for('dashboard.index'))
+        
+    if request.method == 'POST':
+        phone = request.form.get('phone', '').strip()
+        department = request.form.get('department', '').strip()
+        course = request.form.get('course', '').strip()
+        semester = request.form.get('semester', '').strip()
+        address = request.form.get('address', '').strip()
+        
+        errors = []
+        if not phone: errors.append('Phone number is required.')
+        if not department: errors.append('Department is required.')
+        if not course: errors.append('Course is required.')
+        
+        if errors:
+            for e in errors:
+                flash(e, 'danger')
+        else:
+            member.phone = phone
+            member.department = department
+            member.course = course
+            member.semester = semester
+            member.address = address
+            db.session.commit()
+            flash('Profile completed successfully! Welcome to the library.', 'success')
+            return redirect(url_for('dashboard.index'))
+            
+    # Need to pass DEPARTMENTS for the form
+    DEPARTMENTS = [
+        'Computer Science', 'Information Technology', 'Electronics',
+        'Mechanical Engineering', 'Civil Engineering', 'Mathematics',
+        'Physics', 'Chemistry', 'Management', 'Commerce', 'Arts', 'Other'
+    ]
+    return render_template('onboarding.html', departments=DEPARTMENTS, member=member)
