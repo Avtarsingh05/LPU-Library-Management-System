@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% block title %}Fines{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="d-flex align-center justify-between">
+    <div>
+      <div class="breadcrumb"><a href="{{ url_for('dashboard.index') }}">Home</a> <i class="bi bi-chevron-right"></i> Fines</div>
+      <h1 class="page-title">Fine Management</h1>
+    </div>
+  </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="stats-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr));margin-bottom:1.5rem;">
+  <div class="stat-card">
+    <div class="stat-icon red"><i class="bi bi-clock"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">₹{{ '%.0f'|format(total_pending) }}</div>
+      <div class="stat-label">Pending Fines</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon green"><i class="bi bi-check-circle"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">₹{{ '%.0f'|format(total_collected) }}</div>
+      <div class="stat-label">Total Collected</div>
+    </div>
+  </div>
+</div>
+
+<div class="filter-bar">
+  <div class="search-input-wrapper" style="flex:2;">
+    <i class="bi bi-search"></i>
+    <input type="text" class="form-control" id="searchInput" placeholder="Search by member name or ID..." value="{{ search }}">
+  </div>
+  <div class="filter-group">
+    <label>Status</label>
+    <select class="form-select" id="statusFilter">
+      <option value="">All Fines</option>
+      <option value="pending" {% if status == 'pending' %}selected{% endif %}>Pending</option>
+      <option value="paid" {% if status == 'paid' %}selected{% endif %}>Paid</option>
+      <option value="waived" {% if status == 'waived' %}selected{% endif %}>Waived</option>
+    </select>
+  </div>
+  <div style="display:flex;align-items:flex-end;">
+    <a href="{{ url_for('fines.index') }}" class="btn btn-outline-secondary">Reset</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body" style="padding:0;">
+    {% if fines.items %}
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Member</th>
+            <th>Book</th>
+            <th>Amount</th>
+            <th>Reason</th>
+            <th>Created</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for fine in fines.items %}
+          <tr>
+            <td style="color:#95a5a6;font-size:0.8rem;">#{{ fine.id }}</td>
+            <td>
+              <div style="font-weight:600;"><a href="{{ url_for('members.view', id=fine.member_id) }}">{{ fine.member.name }}</a></div>
+              <div style="font-size:0.78rem;color:#6c757d;">{{ fine.member.member_id }}</div>
+            </td>
+            <td style="font-size:0.85rem;">{{ fine.issue.book.title | truncate(30) }}</td>
+            <td>
+              <span style="font-weight:700;font-size:1rem;color:{% if fine.status == 'pending' %}#e74c3c{% else %}#27ae60{% endif %}">₹{{ '%.0f'|format(fine.amount) }}</span>
+            </td>
+            <td style="font-size:0.85rem;color:#6c757d;">{{ fine.reason }}</td>
+            <td style="font-size:0.85rem;">{{ fine.created_at.strftime('%d %b %Y') }}</td>
+            <td>
+              {% if fine.status == 'pending' %}
+                <span class="badge badge-danger">Pending</span>
+              {% elif fine.status == 'paid' %}
+                <span class="badge badge-success">Paid</span>
+              {% else %}
+                <span class="badge badge-secondary">Waived</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if fine.status == 'pending' %}
+              <div class="action-btns">
+                <form method="POST" action="{{ url_for('fines.mark_paid', id=fine.id) }}" style="display:inline;">
+                  <button type="submit" class="btn btn-sm btn-success" title="Mark as Paid">
+                    <i class="bi bi-check-lg"></i> Paid
+                  </button>
+                </form>
+                <form method="POST" action="{{ url_for('fines.waive', id=fine.id) }}" style="display:inline;">
+                  <button type="submit" class="btn btn-sm btn-outline-secondary" title="Waive Fine">
+                    Waive
+                  </button>
+                </form>
+              </div>
+              {% else %}
+                <span style="font-size:0.78rem;color:#95a5a6;">{{ fine.paid_date.strftime('%d %b %Y') if fine.paid_date else '' }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if fines.pages > 1 %}
+    <div style="padding:1rem;border-top:1px solid #f0f0f0;">
+      <div class="pagination">
+        {% if fines.has_prev %}<a href="?page={{ fines.prev_num }}&status={{ status }}&search={{ search }}" class="page-link"><i class="bi bi-chevron-left"></i></a>{% endif %}
+        {% for num in fines.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+          {% if num %}<a href="?page={{ num }}&status={{ status }}&search={{ search }}" class="page-link {% if num == fines.page %}active{% endif %}">{{ num }}</a>
+          {% else %}<span class="page-link disabled">...</span>{% endif %}
+        {% endfor %}
+        {% if fines.has_next %}<a href="?page={{ fines.next_num }}&status={{ status }}&search={{ search }}" class="page-link"><i class="bi bi-chevron-right"></i></a>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon"><i class="bi bi-currency-rupee"></i></div>
+      <h5>No Fines Found</h5>
+      <p>No fines match your current filters.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+var s = document.getElementById('searchInput'), f = document.getElementById('statusFilter');
+function go() { var p = new URLSearchParams(); if (s.value) p.set('search', s.value); if (f.value) p.set('status', f.value); window.location.href = '?' + p.toString(); }
+var t; s.addEventListener('input', function() { clearTimeout(t); t = setTimeout(go, 500); }); f.addEventListener('change', go);
+</script>
+{% endblock %}

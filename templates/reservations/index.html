@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% block title %}Reservations{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="breadcrumb"><a href="{{ url_for('dashboard.index') }}">Home</a> <i class="bi bi-chevron-right"></i> Reservations</div>
+  <h1 class="page-title">Reservations</h1>
+</div>
+
+<div class="filter-bar">
+  <div class="filter-group">
+    <label>Status</label>
+    <select class="form-select" id="statusFilter">
+      <option value="">All</option>
+      <option value="pending" {% if status == 'pending' %}selected{% endif %}>Pending</option>
+      <option value="available" {% if status == 'available' %}selected{% endif %}>Available</option>
+      <option value="completed" {% if status == 'completed' %}selected{% endif %}>Completed</option>
+      <option value="cancelled" {% if status == 'cancelled' %}selected{% endif %}>Cancelled</option>
+    </select>
+  </div>
+  <div style="display:flex;align-items:flex-end;">
+    <a href="{{ url_for('reservations.index') }}" class="btn btn-outline-secondary">Reset</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body" style="padding:0;">
+    {% if reservations.items %}
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Member</th>
+            <th>Book</th>
+            <th>Reserved On</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for res in reservations.items %}
+          <tr>
+            <td style="color:#95a5a6;">#{{ res.id }}</td>
+            <td>
+              <div style="font-weight:600;"><a href="{{ url_for('members.view', id=res.member_id) }}">{{ res.member.name }}</a></div>
+              <div style="font-size:0.78rem;color:#6c757d;">{{ res.member.member_id }}</div>
+            </td>
+            <td>
+              <div class="book-thumb">
+                <div class="book-cover"><i class="bi bi-book"></i></div>
+                <div>
+                  <div class="book-thumb-title"><a href="{{ url_for('books.view', id=res.book_id) }}">{{ res.book.title | truncate(35) }}</a></div>
+                  <div class="book-thumb-author">{{ res.book.author }}</div>
+                </div>
+              </div>
+            </td>
+            <td>{{ res.reservation_date.strftime('%d %b %Y') }}</td>
+            <td>
+              {% if res.status == 'pending' %}
+                <span class="badge badge-warning">Pending</span>
+              {% elif res.status == 'available' %}
+                <span class="badge badge-success">Available</span>
+              {% elif res.status == 'completed' %}
+                <span class="badge badge-info">Completed</span>
+              {% else %}
+                <span class="badge badge-secondary">Cancelled</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if res.status in ['pending', 'available'] %}
+              <form method="POST" action="{{ url_for('reservations.cancel', id=res.id) }}">
+                <button type="submit" class="btn btn-sm btn-outline-secondary" style="color:#e74c3c;">
+                  <i class="bi bi-x"></i> Cancel
+                </button>
+              </form>
+              {% else %}
+              <span style="color:#95a5a6;font-size:0.8rem;">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon"><i class="bi bi-bookmark"></i></div>
+      <h5>No Reservations</h5>
+      <p>No reservations found for the selected filter.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+document.getElementById('statusFilter').addEventListener('change', function() {
+  window.location.href = '?status=' + this.value;
+});
+</script>
+{% endblock %}

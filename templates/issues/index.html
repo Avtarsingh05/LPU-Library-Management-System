@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% block title %}All Issues{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="d-flex align-center justify-between">
+    <div>
+      <div class="breadcrumb"><a href="{{ url_for('dashboard.index') }}">Home</a> <i class="bi bi-chevron-right"></i> Issues</div>
+      <h1 class="page-title">Book Issues</h1>
+    </div>
+    <div class="d-flex gap-1">
+      <a href="{{ url_for('issues.issue_book') }}" class="btn btn-primary"><i class="bi bi-plus"></i> Issue Book</a>
+      <a href="{{ url_for('issues.return_book') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-return-left"></i> Returns</a>
+    </div>
+  </div>
+</div>
+
+<div class="filter-bar">
+  <div class="search-input-wrapper" style="flex:2;">
+    <i class="bi bi-search"></i>
+    <input type="text" class="form-control" id="searchInput" placeholder="Search by member or book..." value="{{ search }}">
+  </div>
+  <div class="filter-group">
+    <label>Status</label>
+    <select class="form-select" id="statusFilter">
+      <option value="">All Issues</option>
+      <option value="issued" {% if status == 'issued' %}selected{% endif %}>Currently Issued</option>
+      <option value="returned" {% if status == 'returned' %}selected{% endif %}>Returned</option>
+    </select>
+  </div>
+  <div style="display:flex;align-items:flex-end;">
+    <a href="{{ url_for('issues.index') }}" class="btn btn-outline-secondary">Reset</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body" style="padding:0;">
+    {% if issues.items %}
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Member</th>
+            <th>Book</th>
+            <th>Issue Date</th>
+            <th>Due Date</th>
+            <th>Return Date</th>
+            <th>Fine</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for issue in issues.items %}
+          <tr>
+            <td style="color:#95a5a6;font-size:0.8rem;">#{{ issue.id }}</td>
+            <td>
+              <div style="font-weight:600;"><a href="{{ url_for('members.view', id=issue.member_id) }}">{{ issue.member.name }}</a></div>
+              <div style="font-size:0.78rem;color:#6c757d;">{{ issue.member.member_id }}</div>
+            </td>
+            <td>
+              <div class="book-thumb">
+                <div class="book-cover"><i class="bi bi-book"></i></div>
+                <div>
+                  <div class="book-thumb-title"><a href="{{ url_for('books.view', id=issue.book_id) }}">{{ issue.book.title | truncate(35) }}</a></div>
+                  <div class="book-thumb-author">{{ issue.book.author }}</div>
+                </div>
+              </div>
+            </td>
+            <td style="font-size:0.85rem;">{{ issue.issue_date.strftime('%d %b %Y') }}</td>
+            <td style="font-size:0.85rem;">{{ issue.due_date.strftime('%d %b %Y') }}</td>
+            <td style="font-size:0.85rem;">{{ issue.return_date.strftime('%d %b %Y') if issue.return_date else '—' }}</td>
+            <td>
+              {% if issue.fine_amount > 0 %}
+                <span class="badge badge-warning">₹{{ '%.0f'|format(issue.fine_amount) }}</span>
+              {% else %}
+                <span class="text-muted" style="font-size:0.8rem;">-</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if issue.status == 'issued' %}
+                {% if issue.is_overdue %}
+                  <span class="badge badge-danger">Overdue</span>
+                {% else %}
+                  <span class="badge badge-info">Issued</span>
+                {% endif %}
+              {% else %}
+                <span class="badge badge-success">Returned</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if issues.pages > 1 %}
+    <div style="padding:1rem; border-top:1px solid #f0f0f0;">
+      <div class="pagination">
+        {% if issues.has_prev %}<a href="?page={{ issues.prev_num }}&status={{ status }}&search={{ search }}" class="page-link"><i class="bi bi-chevron-left"></i></a>{% endif %}
+        {% for num in issues.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+          {% if num %}
+            <a href="?page={{ num }}&status={{ status }}&search={{ search }}" class="page-link {% if num == issues.page %}active{% endif %}">{{ num }}</a>
+          {% else %}<span class="page-link disabled">...</span>{% endif %}
+        {% endfor %}
+        {% if issues.has_next %}<a href="?page={{ issues.next_num }}&status={{ status }}&search={{ search }}" class="page-link"><i class="bi bi-chevron-right"></i></a>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon"><i class="bi bi-journal-text"></i></div>
+      <h5>No Issues Found</h5>
+      <p>No book issues match your search.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+var s = document.getElementById('searchInput'), f = document.getElementById('statusFilter');
+function go() {
+  var p = new URLSearchParams();
+  if (s.value) p.set('search', s.value);
+  if (f.value) p.set('status', f.value);
+  window.location.href = '?' + p.toString();
+}
+var t; s.addEventListener('input', function() { clearTimeout(t); t = setTimeout(go, 500); });
+f.addEventListener('change', go);
+</script>
+{% endblock %}

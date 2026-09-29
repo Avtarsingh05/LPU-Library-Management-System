@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% block title %}Add Book{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="breadcrumb">
+    <a href="{{ url_for('dashboard.index') }}">Home</a> <i class="bi bi-chevron-right"></i>
+    <a href="{{ url_for('books.index') }}">Books</a> <i class="bi bi-chevron-right"></i> Add Book
+  </div>
+  <h1 class="page-title">Add New Book</h1>
+</div>
+
+<div class="card" style="max-width:900px;">
+  <div class="card-header">
+    <span class="card-title"><i class="bi bi-plus-circle"></i> Book Information</span>
+  </div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('books.add') }}" data-validate>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Book Title <span class="required">*</span></label>
+          <input type="text" class="form-control" name="title" value="{{ form_data.get('title', '') }}" required placeholder="Enter book title">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Author <span class="required">*</span></label>
+          <input type="text" class="form-control" name="author" value="{{ form_data.get('author', '') }}" required placeholder="Author name">
+        </div>
+      </div>
+      <div class="form-grid-3">
+        <div class="form-group">
+          <label class="form-label">ISBN <span class="required">*</span></label>
+          <input type="text" class="form-control" name="isbn" value="{{ form_data.get('isbn', '') }}" required placeholder="978-0-00-000000-0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Category <span class="required">*</span></label>
+          <select class="form-select" name="category" required>
+            <option value="">Select category...</option>
+            {% for cat in categories %}
+            <option value="{{ cat }}" {% if form_data.get('category') == cat %}selected{% endif %}>{{ cat }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Publisher</label>
+          <input type="text" class="form-control" name="publisher" value="{{ form_data.get('publisher', '') }}" placeholder="Publisher name">
+        </div>
+      </div>
+      <div class="form-grid-3">
+        <div class="form-group">
+          <label class="form-label">Publication Year</label>
+          <input type="number" class="form-control" name="publication_year" value="{{ form_data.get('publication_year', '') }}" min="1800" max="2030" placeholder="2024">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Language</label>
+          <select class="form-select" name="language">
+            {% for lang in languages %}
+            <option value="{{ lang }}" {% if form_data.get('language', 'English') == lang %}selected{% endif %}>{{ lang }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Total Copies <span class="required">*</span></label>
+          <input type="number" class="form-control" name="total_copies" value="{{ form_data.get('total_copies', 1) }}" min="1" required>
+        </div>
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Shelf Location</label>
+          <input type="text" class="form-control" name="shelf_location" value="{{ form_data.get('shelf_location', '') }}" placeholder="e.g. A1-23">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cover Image URL</label>
+          <input type="url" class="form-control" name="cover_image" value="{{ form_data.get('cover_image', '') }}" placeholder="https://...">
+          <span class="form-text">Optional: Enter a URL to a book cover image</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-control" name="description" rows="4" placeholder="Brief description of the book...">{{ form_data.get('description', '') }}</textarea>
+      </div>
+      <div style="display:flex; gap:0.75rem; justify-content:flex-end;">
+        <a href="{{ url_for('books.index') }}" class="btn btn-outline-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add Book</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

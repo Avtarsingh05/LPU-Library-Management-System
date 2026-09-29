@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+{% block title %}Reports{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="d-flex align-center justify-between">
+    <div>
+      <div class="breadcrumb"><a href="{{ url_for('dashboard.index') }}">Home</a> <i class="bi bi-chevron-right"></i> Reports</div>
+      <h1 class="page-title">Library Reports</h1>
+      <p class="page-subtitle">Data from {{ start_date.strftime('%d %b %Y') }} to {{ today.strftime('%d %b %Y') }}</p>
+    </div>
+    <div class="d-flex gap-1">
+      <a href="{{ url_for('reports.export_issued', period=period) }}" class="btn btn-outline-secondary">
+        <i class="bi bi-download"></i> Export CSV
+      </a>
+      <button class="btn btn-outline-secondary" data-action="print">
+        <i class="bi bi-printer"></i> Print
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Period Filter -->
+<div class="filter-bar" style="margin-bottom:1.5rem;">
+  <div class="filter-group">
+    <label>Report Period</label>
+    <select class="form-select" id="periodFilter">
+      <option value="today" {% if period == 'today' %}selected{% endif %}>Today</option>
+      <option value="week" {% if period == 'week' %}selected{% endif %}>This Week</option>
+      <option value="month" {% if period == 'month' %}selected{% endif %}>This Month</option>
+      <option value="year" {% if period == 'year' %}selected{% endif %}>This Year</option>
+    </select>
+  </div>
+</div>
+
+<!-- Summary Stats -->
+<div class="stats-grid" style="margin-bottom:1.5rem;">
+  <div class="stat-card">
+    <div class="stat-icon blue"><i class="bi bi-box-arrow-up-right"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">{{ total_issued }}</div>
+      <div class="stat-label">Books Issued</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon green"><i class="bi bi-box-arrow-down-left"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">{{ total_returned }}</div>
+      <div class="stat-label">Books Returned</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon orange"><i class="bi bi-clock-history"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">{{ overdue_issues | length }}</div>
+      <div class="stat-label">Currently Overdue</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon red"><i class="bi bi-currency-rupee"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">₹{{ '%.0f'|format(fine_collected) }}</div>
+      <div class="stat-label">Fine Collected</div>
+    </div>
+  </div>
+</div>
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem;">
+  <!-- Most Borrowed Books -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><i class="bi bi-trophy"></i> Most Borrowed Books</span>
+    </div>
+    <div class="card-body" style="padding:0;">
+      {% if most_borrowed %}
+      <table class="data-table">
+        <thead><tr><th>#</th><th>Title</th><th>Author</th><th>Times</th></tr></thead>
+        <tbody>
+          {% for item in most_borrowed %}
+          <tr>
+            <td style="color:#95a5a6;">{{ loop.index }}</td>
+            <td>{{ item[0] | truncate(30) }}</td>
+            <td style="color:#6c757d;font-size:0.82rem;">{{ item[1] }}</td>
+            <td><span class="badge badge-primary">{{ item[2] }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state" style="padding:2rem;"><div class="empty-icon"><i class="bi bi-trophy"></i></div><h5>No Data</h5></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Most Active Members -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><i class="bi bi-star"></i> Most Active Members</span>
+    </div>
+    <div class="card-body" style="padding:0;">
+      {% if most_active %}
+      <table class="data-table">
+        <thead><tr><th>#</th><th>Name</th><th>ID</th><th>Issues</th></tr></thead>
+        <tbody>
+          {% for item in most_active %}
+          <tr>
+            <td style="color:#95a5a6;">{{ loop.index }}</td>
+            <td>{{ item[0] }}</td>
+            <td style="font-size:0.8rem;color:#6c757d;">{{ item[1] }}</td>
+            <td><span class="badge badge-primary">{{ item[2] }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state" style="padding:2rem;"><div class="empty-icon"><i class="bi bi-people"></i></div><h5>No Data</h5></div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Category Statistics -->
+<div class="card" style="margin-top:1.5rem;">
+  <div class="card-header">
+    <span class="card-title"><i class="bi bi-grid"></i> Category Statistics</span>
+  </div>
+  <div class="card-body" style="padding:0;">
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr><th>Category</th><th>Total Books</th><th>Total Copies</th><th>Available Copies</th><th>Utilization</th></tr>
+        </thead>
+        <tbody>
+          {% for stat in category_stats %}
+          <tr>
+            <td><span class="badge badge-info">{{ stat[0] }}</span></td>
+            <td>{{ stat[1] }}</td>
+            <td>{{ stat[2] or 0 }}</td>
+            <td>{{ stat[3] or 0 }}</td>
+            <td>
+              {% set util = ((1 - (stat[3] or 0) / (stat[2] or 1)) * 100) | int %}
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <div class="availability-bar" style="width:80px;height:6px;">
+                  <div class="availability-fill {% if util > 70 %}low{% endif %}" style="width:{{ util }}%;"></div>
+                </div>
+                <span style="font-size:0.8rem;">{{ util }}%</span>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Overdue Books -->
+{% if overdue_issues %}
+<div class="card" style="margin-top:1.5rem;">
+  <div class="card-header">
+    <span class="card-title"><i class="bi bi-exclamation-triangle" style="color:#e74c3c;"></i> Currently Overdue Books</span>
+    <span class="badge badge-danger">{{ overdue_issues | length }}</span>
+  </div>
+  <div class="card-body" style="padding:0;">
+    <table class="data-table">
+      <thead><tr><th>Member</th><th>Book</th><th>Due Date</th><th>Days Overdue</th><th>Est. Fine</th></tr></thead>
+      <tbody>
+        {% for issue in overdue_issues %}
+        <tr>
+          <td><a href="{{ url_for('members.view', id=issue.member_id) }}">{{ issue.member.name }}</a></td>
+          <td>{{ issue.book.title | truncate(35) }}</td>
+          <td>{{ issue.due_date.strftime('%d %b %Y') }}</td>
+          <td><span class="badge badge-danger">{{ issue.overdue_days }} days</span></td>
+          <td style="font-weight:700;color:#e74c3c;">₹{{ (issue.overdue_days * 5) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+{% block extra_js %}
+<script>
+document.getElementById('periodFilter').addEventListener('change', function() {
+  window.location.href = '?period=' + this.value;
+});
+</script>
+{% endblock %}

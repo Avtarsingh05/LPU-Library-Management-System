@@ -1,0 +1,323 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="d-flex align-center justify-between">
+    <div>
+      <h1 class="page-title">Dashboard</h1>
+      <p class="page-subtitle">Welcome back, {{ current_user.name }} &mdash; here's what's happening today.</p>
+    </div>
+    <div class="d-flex gap-1">
+      <a href="{{ url_for('issues.issue_book') }}" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> Issue Book
+      </a>
+      <a href="{{ url_for('reports.index') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-bar-chart"></i> Reports
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-icon navy"><i class="bi bi-book"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">{{ total_books }}</div>
+      <div class="stat-label">Total Books</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon green"><i class="bi bi-book-half"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">{{ available_books }}</div>
+      <div class="stat-label">Available Books</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon blue"><i class="bi bi-box-arrow-up-right"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">{{ issued_books }}</div>
+      <div class="stat-label">Issued Books</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon purple"><i class="bi bi-people"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">{{ total_members }}</div>
+      <div class="stat-label">Registered Members</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon orange"><i class="bi bi-clock-history"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">{{ overdue_books }}</div>
+      <div class="stat-label">Overdue Books</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon red"><i class="bi bi-currency-rupee"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">&#8377;{{ '%.0f'|format(pending_fines) }}</div>
+      <div class="stat-label">Pending Fines</div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts Row -->
+<div class="charts-grid">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><i class="bi bi-graph-up"></i> Books Issued (Last 30 Days)</span>
+    </div>
+    <div class="card-body">
+      <div class="chart-container"><canvas id="issuesChart" height="200"></canvas></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><i class="bi bi-pie-chart"></i> Books by Category</span>
+    </div>
+    <div class="card-body">
+      <div class="chart-container"><canvas id="categoryChart" height="200"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<div class="charts-grid">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><i class="bi bi-arrow-return-left"></i> Monthly Returns</span>
+    </div>
+    <div class="card-body">
+      <div class="chart-container"><canvas id="returnsChart" height="200"></canvas></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><i class="bi bi-currency-rupee"></i> Fine Collection</span>
+    </div>
+    <div class="card-body">
+      <div class="chart-container"><canvas id="finesChart" height="200"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- Dashboard Main Grid -->
+<div class="dashboard-grid">
+  <!-- Recent Activity -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><i class="bi bi-activity"></i> Recent Activity</span>
+      <a href="{{ url_for('issues.index') }}" class="btn btn-sm btn-outline-secondary">View All</a>
+    </div>
+    <div class="card-body" style="padding:0;">
+      {% if recent_issues %}
+      <div class="activity-list" style="padding:0 1.25rem;">
+        {% for issue in recent_issues %}
+        <div class="activity-item">
+          <div class="activity-icon {% if issue.status == 'issued' %}issued{% elif issue.status == 'returned' %}returned{% else %}overdue{% endif %}">
+            <i class="bi bi-{% if issue.status == 'issued' %}box-arrow-up-right{% elif issue.status == 'returned' %}box-arrow-down-left{% else %}exclamation{% endif %}"></i>
+          </div>
+          <div class="activity-content">
+            <div class="activity-text">
+              <strong>{{ issue.member.name }}</strong>
+              {% if issue.status == 'issued' %}issued{% elif issue.status == 'returned' %}returned{% else %}overdue on{% endif %}
+              "<a href="{{ url_for('books.view', id=issue.book_id) }}">{{ issue.book.title | truncate(40) }}</a>"
+            </div>
+            <div class="activity-meta">
+              {{ issue.issue_date.strftime('%d %b %Y') }}
+              &bull;
+              {% if issue.status == 'issued' %}
+                {% if issue.is_overdue %}
+                  <span class="text-danger">Overdue by {{ issue.overdue_days }} day(s)</span>
+                {% else %}
+                  Due: {{ issue.due_date.strftime('%d %b %Y') }}
+                {% endif %}
+              {% elif issue.status == 'returned' %}
+                Returned: {{ issue.return_date.strftime('%d %b %Y') }}
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <div class="empty-icon"><i class="bi bi-activity"></i></div>
+        <h5>No Recent Activity</h5>
+        <p>Issue a book to see activity here.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Overdue Books -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><i class="bi bi-exclamation-triangle" style="color:#e74c3c"></i> Overdue Books</span>
+      <span class="badge badge-danger">{{ overdue_books }}</span>
+    </div>
+    <div class="card-body" style="padding:0;">
+      {% if overdue_issues %}
+      <div style="padding:0 1rem;">
+        {% for issue in overdue_issues %}
+        <div class="activity-item">
+          <div class="activity-icon overdue"><i class="bi bi-clock"></i></div>
+          <div class="activity-content">
+            <div class="activity-text">
+              <a href="{{ url_for('members.view', id=issue.member_id) }}">{{ issue.member.name }}</a>
+            </div>
+            <div class="activity-meta text-truncate">{{ issue.book.title | truncate(35) }}</div>
+            <div class="due-badge overdue" style="margin-top:0.2rem;">{{ issue.overdue_days }} days overdue</div>
+          </div>
+          <a href="{{ url_for('issues.return_book') }}" class="btn btn-sm btn-outline-secondary" title="Process Return"><i class="bi bi-arrow-return-left"></i></a>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <div class="empty-icon"><i class="bi bi-check-circle"></i></div>
+        <h5>No Overdue Books</h5>
+        <p>All books are on time!</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// Chart color palette
+const colors = {
+  blue: 'rgba(41, 128, 185, 0.85)',
+  green: 'rgba(39, 174, 96, 0.85)',
+  orange: 'rgba(243, 156, 18, 0.85)',
+  red: 'rgba(231, 76, 60, 0.85)',
+  purple: 'rgba(142, 68, 173, 0.85)',
+  teal: 'rgba(23, 162, 184, 0.85)',
+  navy: 'rgba(26, 58, 92, 0.85)',
+};
+
+const chartDefaults = {
+  responsive: true,
+  maintainAspectRatio: true,
+  plugins: { legend: { display: false } },
+};
+
+// 1. Issues Over Time Chart
+const dailyIssues = {{ daily_issues | tojson }};
+const issueLabels = dailyIssues.map(d => {
+  const date = new Date(d[0]);
+  return date.toLocaleDateString('en-IN', { month:'short', day:'numeric' });
+});
+const issueData = dailyIssues.map(d => d[1]);
+
+new Chart(document.getElementById('issuesChart'), {
+  type: 'line',
+  data: {
+    labels: issueLabels.length ? issueLabels : ['No Data'],
+    datasets: [{
+      label: 'Books Issued',
+      data: issueData.length ? issueData : [0],
+      borderColor: colors.blue,
+      backgroundColor: 'rgba(41, 128, 185, 0.1)',
+      borderWidth: 2,
+      fill: true,
+      tension: 0.4,
+      pointRadius: 3,
+      pointBackgroundColor: colors.blue,
+    }]
+  },
+  options: {
+    ...chartDefaults,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+      y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } } }
+    }
+  }
+});
+
+// 2. Category Chart (Doughnut)
+const categoryStats = {{ category_stats | tojson }};
+const catColors = [
+  colors.blue, colors.green, colors.orange, colors.red,
+  colors.purple, colors.teal, colors.navy,
+  'rgba(52, 152, 219, 0.85)', 'rgba(155, 89, 182, 0.85)',
+  'rgba(26, 188, 156, 0.85)', 'rgba(231, 76, 60, 0.7)', 'rgba(149, 165, 166, 0.85)'
+];
+
+new Chart(document.getElementById('categoryChart'), {
+  type: 'doughnut',
+  data: {
+    labels: categoryStats.length ? categoryStats.map(c => c[0]) : ['No Data'],
+    datasets: [{
+      data: categoryStats.length ? categoryStats.map(c => c[1]) : [1],
+      backgroundColor: catColors,
+      borderWidth: 2,
+      borderColor: '#fff'
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: {
+      legend: {
+        display: true,
+        position: 'right',
+        labels: { font: { size: 10 }, boxWidth: 12, padding: 8 }
+      }
+    }
+  }
+});
+
+// 3. Monthly Returns Chart
+const monthlyReturns = {{ monthly_returns | tojson }};
+new Chart(document.getElementById('returnsChart'), {
+  type: 'bar',
+  data: {
+    labels: monthlyReturns.length ? monthlyReturns.map(r => r[0]) : ['No Data'],
+    datasets: [{
+      label: 'Returns',
+      data: monthlyReturns.length ? monthlyReturns.map(r => r[1]) : [0],
+      backgroundColor: colors.green,
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    ...chartDefaults,
+    scales: {
+      x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+      y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } } }
+    }
+  }
+});
+
+// 4. Fine Collection Chart
+const monthlyFines = {{ monthly_fines | tojson }};
+new Chart(document.getElementById('finesChart'), {
+  type: 'bar',
+  data: {
+    labels: monthlyFines.length ? monthlyFines.map(f => f[0]) : ['No Data'],
+    datasets: [{
+      label: 'Fines Collected',
+      data: monthlyFines.length ? monthlyFines.map(f => f[1]) : [0],
+      backgroundColor: colors.orange,
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    ...chartDefaults,
+    scales: {
+      x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+      y: { beginAtZero: true, ticks: { font: { size: 10 } } }
+    }
+  }
+});
+</script>
+{% endblock %}

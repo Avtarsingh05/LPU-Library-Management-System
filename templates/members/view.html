@@ -1,0 +1,255 @@
+{% extends 'base.html' %}
+{% block title %}{{ member.name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="breadcrumb">
+    <a href="{{ url_for('dashboard.index') }}">Home</a> <i class="bi bi-chevron-right"></i>
+    <a href="{{ url_for('members.index') }}">Members</a> <i class="bi bi-chevron-right"></i> {{ member.name }}
+  </div>
+</div>
+
+<div style="display:grid; grid-template-columns:1fr 300px; gap:1.5rem;">
+  <!-- Main Content -->
+  <div>
+    <!-- Profile Card -->
+    <div class="card mb-2">
+      <div class="card-body">
+        <div class="profile-header">
+          <div class="profile-avatar">{{ member.name[0] | upper }}</div>
+          <div>
+            <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+              <h3 style="margin:0;">{{ member.name }}</h3>
+              {% if member.status == 'active' %}
+                <span class="badge badge-success">Active</span>
+              {% elif member.status == 'inactive' %}
+                <span class="badge badge-secondary">Inactive</span>
+              {% else %}
+                <span class="badge badge-danger">Suspended</span>
+              {% endif %}
+            </div>
+            <p style="margin:0.25rem 0 0.75rem;color:#6c757d;">{{ member.member_id }} &bull; {{ member.email }}</p>
+            {% if current_user and current_user.is_admin() %}
+            <div style="display:flex; gap:0.5rem;">
+              <a href="{{ url_for('members.edit', id=member.id) }}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-pencil"></i> Edit
+              </a>
+              <form method="POST" action="{{ url_for('members.toggle_status', id=member.id) }}" style="display:inline;">
+                <button type="submit" class="btn btn-sm {% if member.status == 'active' %}btn-outline-secondary{% else %}btn-outline-secondary{% endif %}" style="color:{% if member.status == 'active' %}#e74c3c{% else %}#27ae60{% endif %};">
+                  <i class="bi bi-{% if member.status == 'active' %}person-slash{% else %}person-check{% endif %}"></i>
+                  {% if member.status == 'active' %}Disable{% else %}Enable{% endif %}
+                </button>
+              </form>
+              <a href="{{ url_for('issues.issue_book') }}" class="btn btn-sm btn-primary">
+                <i class="bi bi-box-arrow-up-right"></i> Issue Book
+              </a>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="profile-stats">
+          <div class="profile-stat">
+            <div class="value">{{ total_borrowed }}</div>
+            <div class="label">Total Borrowed</div>
+          </div>
+          <div class="profile-stat">
+            <div class="value">{{ total_returned }}</div>
+            <div class="label">Returned</div>
+          </div>
+          <div class="profile-stat">
+            <div class="value">{{ current_issues | length }}</div>
+            <div class="label">Currently Issued</div>
+          </div>
+          <div class="profile-stat">
+            <div class="value" style="color:{% if total_fine > 0 %}#e74c3c{% else %}#27ae60{% endif %}">₹{{ '%.0f'|format(total_fine) }}</div>
+            <div class="label">Total Fines</div>
+          </div>
+        </div>
+
+        <!-- Info Grid -->
+        <div class="book-meta-grid">
+          <div class="book-meta-item">
+            <label>Phone</label>
+            <span>{{ member.phone or 'Not provided' }}</span>
+          </div>
+          <div class="book-meta-item">
+            <label>Department</label>
+            <span>{{ member.department or 'Not provided' }}</span>
+          </div>
+          <div class="book-meta-item">
+            <label>Course</label>
+            <span>{{ member.course or 'Not provided' }}</span>
+          </div>
+          <div class="book-meta-item">
+            <label>Semester</label>
+            <span>{{ member.semester or 'Not provided' }}</span>
+          </div>
+          <div class="book-meta-item">
+            <label>Registered On</label>
+            <span>{{ member.registration_date.strftime('%d %b %Y') }}</span>
+          </div>
+          <div class="book-meta-item">
+            <label>Address</label>
+            <span>{{ member.address or 'Not provided' }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Currently Issued -->
+    <div class="card mb-2">
+      <div class="card-header">
+        <span class="card-title"><i class="bi bi-book"></i> Currently Borrowed Books</span>
+        <span class="badge badge-info">{{ current_issues | length }}</span>
+      </div>
+      <div class="card-body" style="padding:0;">
+        {% if current_issues %}
+        <table class="data-table">
+          <thead>
+            <tr><th>Book</th><th>Issue Date</th><th>Due Date</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            {% for issue in current_issues %}
+            <tr>
+              <td>
+                <div class="book-thumb">
+                  <div class="book-cover"><i class="bi bi-book"></i></div>
+                  <div>
+                    <div class="book-thumb-title"><a href="{{ url_for('books.view', id=issue.book_id) }}">{{ issue.book.title | truncate(35) }}</a></div>
+                    <div class="book-thumb-author">{{ issue.book.author }}</div>
+                  </div>
+                </div>
+              </td>
+              <td>{{ issue.issue_date.strftime('%d %b %Y') }}</td>
+              <td>{{ issue.due_date.strftime('%d %b %Y') }}</td>
+              <td>
+                {% if issue.is_overdue %}
+                  <span class="due-badge overdue">Overdue {{ issue.overdue_days }}d</span>
+                {% elif issue.days_remaining <= 3 %}
+                  <span class="due-badge soon">Due in {{ issue.days_remaining }}d</span>
+                {% else %}
+                  <span class="due-badge ok">{{ issue.days_remaining }}d left</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state" style="padding:2rem;">
+          <div class="empty-icon"><i class="bi bi-book"></i></div>
+          <h5>No Active Issues</h5>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Borrowing History -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title"><i class="bi bi-clock-history"></i> Borrowing History</span>
+      </div>
+      <div class="card-body" style="padding:0;">
+        {% if history %}
+        <table class="data-table">
+          <thead>
+            <tr><th>Book</th><th>Issued</th><th>Returned</th><th>Fine</th></tr>
+          </thead>
+          <tbody>
+            {% for issue in history %}
+            <tr>
+              <td>
+                <div class="book-thumb">
+                  <div class="book-cover"><i class="bi bi-book"></i></div>
+                  <div class="book-thumb-title"><a href="{{ url_for('books.view', id=issue.book_id) }}">{{ issue.book.title | truncate(35) }}</a></div>
+                </div>
+              </td>
+              <td>{{ issue.issue_date.strftime('%d %b') }}</td>
+              <td>{{ issue.return_date.strftime('%d %b %Y') if issue.return_date else '—' }}</td>
+              <td>
+                {% if issue.fine_amount > 0 %}
+                  <span class="badge badge-warning">₹{{ '%.0f'|format(issue.fine_amount) }}</span>
+                {% else %}
+                  <span class="text-muted" style="font-size:0.8rem;">None</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state" style="padding:2rem;">
+          <div class="empty-icon"><i class="bi bi-clock-history"></i></div>
+          <h5>No Borrowing History</h5>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar: Fines + Reservations -->
+  <div>
+    <div class="card mb-2">
+      <div class="card-header">
+        <span class="card-title"><i class="bi bi-currency-rupee"></i> Fines</span>
+        {% set pending_fines = fines | selectattr('status', 'eq', 'pending') | list %}
+        {% if pending_fines %}
+          <span class="badge badge-danger">₹{{ '%.0f'|format(pending_fines | sum(attribute='amount')) }}</span>
+        {% endif %}
+      </div>
+      <div class="card-body" style="padding:0.5rem 1rem;">
+        {% if fines %}
+          {% for fine in fines[:5] %}
+          <div class="activity-item">
+            <div class="activity-icon {% if fine.status == 'pending' %}overdue{% elif fine.status == 'paid' %}returned{% else %}issued{% endif %}">
+              <i class="bi bi-currency-rupee"></i>
+            </div>
+            <div class="activity-content">
+              <div class="activity-text">₹{{ '%.0f'|format(fine.amount) }}</div>
+              <div class="activity-meta">{{ fine.reason }}</div>
+              <span class="badge {% if fine.status == 'pending' %}badge-danger{% elif fine.status == 'paid' %}badge-success{% else %}badge-secondary{% endif %}">
+                {{ fine.status | capitalize }}
+              </span>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+        <div class="empty-state" style="padding:1.5rem;">
+          <div class="empty-icon"><i class="bi bi-check-circle"></i></div>
+          <h5>No Fines</h5>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title"><i class="bi bi-bookmark"></i> Reservations</span>
+      </div>
+      <div class="card-body" style="padding:0.5rem 1rem;">
+        {% if reservations %}
+          {% for res in reservations %}
+          <div class="activity-item">
+            <div class="activity-icon reserved"><i class="bi bi-bookmark"></i></div>
+            <div class="activity-content">
+              <div class="activity-text">{{ res.book.title | truncate(30) }}</div>
+              <div class="activity-meta">{{ res.reservation_date.strftime('%d %b %Y') }}</div>
+              <span class="badge {% if res.status == 'available' %}badge-success{% elif res.status == 'pending' %}badge-warning{% else %}badge-secondary{% endif %}">
+                {{ res.status | capitalize }}
+              </span>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+        <div class="empty-state" style="padding:1.5rem;">
+          <div class="empty-icon"><i class="bi bi-bookmark"></i></div>
+          <h5>No Reservations</h5>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

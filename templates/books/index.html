@@ -1,0 +1,200 @@
+{% extends 'base.html' %}
+{% block title %}Books{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="d-flex align-center justify-between">
+    <div>
+      <div class="breadcrumb"><a href="{{ url_for('dashboard.index') }}">Home</a> <i class="bi bi-chevron-right"></i> Books</div>
+      <h1 class="page-title">Book Catalog</h1>
+      <p class="page-subtitle">{{ books.total }} books in the library collection</p>
+    </div>
+    {% if current_user and current_user.is_admin() %}
+    <a href="{{ url_for('books.add') }}" class="btn btn-primary">
+      <i class="bi bi-plus-lg"></i> Add Book
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="filter-bar">
+  <div class="search-input-wrapper" style="flex:2;">
+    <i class="bi bi-search"></i>
+    <input type="text" class="form-control" id="searchInput" 
+           placeholder="Search by title, author, or ISBN..."
+           value="{{ search }}" autocomplete="off">
+  </div>
+  <div class="filter-group">
+    <label>Category</label>
+    <select class="form-select" id="categoryFilter">
+      <option value="">All Categories</option>
+      {% for cat in categories %}
+      <option value="{{ cat }}" {% if cat == category %}selected{% endif %}>{{ cat }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="filter-group">
+    <label>Availability</label>
+    <select class="form-select" id="availFilter">
+      <option value="">All</option>
+      <option value="available" {% if availability == 'available' %}selected{% endif %}>Available</option>
+      <option value="unavailable" {% if availability == 'unavailable' %}selected{% endif %}>Not Available</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label>Sort By</label>
+    <select class="form-select" id="sortFilter">
+      <option value="title_asc" {% if sort == 'title_asc' %}selected{% endif %}>Title A-Z</option>
+      <option value="title_desc" {% if sort == 'title_desc' %}selected{% endif %}>Title Z-A</option>
+      <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest</option>
+      <option value="oldest" {% if sort == 'oldest' %}selected{% endif %}>Oldest</option>
+      <option value="available_first" {% if sort == 'available_first' %}selected{% endif %}>Available First</option>
+    </select>
+  </div>
+  <div style="display:flex; align-items:flex-end;">
+    <a href="{{ url_for('books.index') }}" class="btn btn-outline-secondary">Reset</a>
+  </div>
+</div>
+
+<!-- Books Table -->
+<div class="card">
+  <div class="card-body" style="padding:0;">
+    {% if books.items %}
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Book</th>
+            <th>ISBN</th>
+            <th>Category</th>
+            <th>Copies</th>
+            <th>Available</th>
+            <th>Shelf</th>
+            <th>Status</th>
+            {% if current_user and current_user.is_admin() %}
+            <th>Actions</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for book in books.items %}
+          <tr>
+            <td>
+              <div class="book-thumb">
+                <div class="book-cover"><i class="bi bi-book"></i></div>
+                <div>
+                  <div class="book-thumb-title">
+                    <a href="{{ url_for('books.view', id=book.id) }}" style="color:inherit;">{{ book.title | truncate(40) }}</a>
+                  </div>
+                  <div class="book-thumb-author">{{ book.author }}</div>
+                </div>
+              </div>
+            </td>
+            <td><code style="font-size:0.78rem;">{{ book.isbn }}</code></td>
+            <td><span class="badge badge-info">{{ book.category }}</span></td>
+            <td>{{ book.total_copies }}</td>
+            <td>
+              <div>{{ book.available_copies }}/{{ book.total_copies }}</div>
+              <div class="availability-bar">
+                {% set pct = (book.available_copies / book.total_copies * 100) if book.total_copies > 0 else 0 %}
+                <div class="availability-fill {% if pct == 0 %}none{% elif pct < 30 %}low{% endif %}" style="width:{{ pct }}%;"></div>
+              </div>
+            </td>
+            <td><span class="text-muted" style="font-size:0.82rem;">{{ book.shelf_location or '—' }}</span></td>
+            <td>
+              {% if book.available_copies > 0 %}
+                <span class="badge badge-success"><i class="bi bi-check-circle"></i> Available</span>
+              {% else %}
+                <span class="badge badge-danger"><i class="bi bi-x-circle"></i> Issued Out</span>
+              {% endif %}
+            </td>
+            {% if current_user and current_user.is_admin() %}
+            <td>
+              <div class="action-btns">
+                <a href="{{ url_for('books.view', id=book.id) }}" class="btn-action view" title="View Details"><i class="bi bi-eye"></i></a>
+                <a href="{{ url_for('books.edit', id=book.id) }}" class="btn-action edit" title="Edit Book"><i class="bi bi-pencil"></i></a>
+                <button class="btn-action delete" title="Delete Book"
+                  data-delete-url="{{ url_for('books.delete', id=book.id) }}"
+                  data-item-name="{{ book.title }}">
+                  <i class="bi bi-trash3"></i>
+                </button>
+              </div>
+            </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if books.pages > 1 %}
+    <div style="padding: 1rem 1.25rem; border-top: 1px solid #f0f0f0;">
+      <div class="pagination">
+        {% if books.has_prev %}
+          <a href="?page={{ books.prev_num }}&search={{ search }}&category={{ category }}&availability={{ availability }}&sort={{ sort }}" class="page-link">
+            <i class="bi bi-chevron-left"></i>
+          </a>
+        {% endif %}
+        
+        {% for num in books.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+          {% if num %}
+            <a href="?page={{ num }}&search={{ search }}&category={{ category }}&availability={{ availability }}&sort={{ sort }}" 
+               class="page-link {% if num == books.page %}active{% endif %}">{{ num }}</a>
+          {% else %}
+            <span class="page-link disabled">...</span>
+          {% endif %}
+        {% endfor %}
+        
+        {% if books.has_next %}
+          <a href="?page={{ books.next_num }}&search={{ search }}&category={{ category }}&availability={{ availability }}&sort={{ sort }}" class="page-link">
+            <i class="bi bi-chevron-right"></i>
+          </a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon"><i class="bi bi-book"></i></div>
+      <h5>No Books Found</h5>
+      <p>Try changing your search or filters.</p>
+      {% if current_user and current_user.is_admin() %}
+      <a href="{{ url_for('books.add') }}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add Book</a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Live search with debounce
+var searchInput = document.getElementById('searchInput');
+var categoryFilter = document.getElementById('categoryFilter');
+var availFilter = document.getElementById('availFilter');
+var sortFilter = document.getElementById('sortFilter');
+
+function applyFilters() {
+  var params = new URLSearchParams();
+  if (searchInput.value) params.set('search', searchInput.value);
+  if (categoryFilter.value) params.set('category', categoryFilter.value);
+  if (availFilter.value) params.set('availability', availFilter.value);
+  if (sortFilter.value) params.set('sort', sortFilter.value);
+  window.location.href = '?' + params.toString();
+}
+
+var debounceTimer;
+searchInput.addEventListener('input', function() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(applyFilters, 500);
+});
+
+categoryFilter.addEventListener('change', applyFilters);
+availFilter.addEventListener('change', applyFilters);
+sortFilter.addEventListener('change', applyFilters);
+</script>
+{% endblock %}

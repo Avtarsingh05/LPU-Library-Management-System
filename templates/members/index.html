@@ -1,0 +1,172 @@
+{% extends 'base.html' %}
+{% block title %}Members{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="d-flex align-center justify-between">
+    <div>
+      <div class="breadcrumb"><a href="{{ url_for('dashboard.index') }}">Home</a> <i class="bi bi-chevron-right"></i> Members</div>
+      <h1 class="page-title">Members</h1>
+      <p class="page-subtitle">{{ members.total }} registered members</p>
+    </div>
+    <a href="{{ url_for('members.add') }}" class="btn btn-primary">
+      <i class="bi bi-person-plus"></i> Add Member
+    </a>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="filter-bar">
+  <div class="search-input-wrapper" style="flex:2;">
+    <i class="bi bi-search"></i>
+    <input type="text" class="form-control" id="searchInput" placeholder="Search by name, email, or ID..." value="{{ search }}">
+  </div>
+  <div class="filter-group">
+    <label>Status</label>
+    <select class="form-select" id="statusFilter">
+      <option value="">All Status</option>
+      <option value="active" {% if status == 'active' %}selected{% endif %}>Active</option>
+      <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>Inactive</option>
+      <option value="suspended" {% if status == 'suspended' %}selected{% endif %}>Suspended</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label>Department</label>
+    <select class="form-select" id="deptFilter">
+      <option value="">All Departments</option>
+      {% for dept in departments %}
+      <option value="{{ dept }}" {% if dept == department %}selected{% endif %}>{{ dept }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div style="display:flex;align-items:flex-end;">
+    <a href="{{ url_for('members.index') }}" class="btn btn-outline-secondary">Reset</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body" style="padding:0;">
+    {% if members.items %}
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Member</th>
+            <th>Member ID</th>
+            <th>Phone</th>
+            <th>Course / Department</th>
+            <th>Registered</th>
+            <th>Active Issues</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for member in members.items %}
+          <tr>
+            <td>
+              <div class="d-flex align-center gap-1">
+                <div class="user-avatar" style="width:34px;height:34px;font-size:0.85rem;">{{ member.name[0] | upper }}</div>
+                <div>
+                  <div style="font-weight:600;">{{ member.name }}</div>
+                  <div style="font-size:0.78rem;color:#6c757d;">{{ member.email }}</div>
+                </div>
+              </div>
+            </td>
+            <td><code style="font-size:0.78rem;">{{ member.member_id }}</code></td>
+            <td>{{ member.phone or '—' }}</td>
+            <td>
+              <div style="font-size:0.875rem;">{{ member.course or '—' }}</div>
+              <div style="font-size:0.78rem;color:#6c757d;">{{ member.department or '' }}</div>
+            </td>
+            <td style="font-size:0.85rem;">{{ member.registration_date.strftime('%d %b %Y') }}</td>
+            <td>
+              {% set issue_count = member.active_issues_count %}
+              {% if issue_count > 0 %}
+                <span class="badge badge-info">{{ issue_count }}</span>
+              {% else %}
+                <span style="color:#95a5a6;">0</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if member.status == 'active' %}
+                <span class="badge badge-success">Active</span>
+              {% elif member.status == 'inactive' %}
+                <span class="badge badge-secondary">Inactive</span>
+              {% else %}
+                <span class="badge badge-danger">Suspended</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="action-btns">
+                <a href="{{ url_for('members.view', id=member.id) }}" class="btn-action view" title="View Profile"><i class="bi bi-eye"></i></a>
+                <a href="{{ url_for('members.edit', id=member.id) }}" class="btn-action edit" title="Edit Member"><i class="bi bi-pencil"></i></a>
+                <form method="POST" action="{{ url_for('members.toggle_status', id=member.id) }}" style="display:inline;">
+                  <button type="submit" class="btn-action {% if member.status == 'active' %}delete{% else %}return{% endif %}" 
+                    title="{% if member.status == 'active' %}Disable{% else %}Enable{% endif %} Member">
+                    <i class="bi bi-{% if member.status == 'active' %}person-slash{% else %}person-check{% endif %}"></i>
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if members.pages > 1 %}
+    <div style="padding:1rem 1.25rem; border-top:1px solid #f0f0f0;">
+      <div class="pagination">
+        {% if members.has_prev %}
+          <a href="?page={{ members.prev_num }}&search={{ search }}&status={{ status }}&department={{ department }}" class="page-link"><i class="bi bi-chevron-left"></i></a>
+        {% endif %}
+        {% for num in members.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+          {% if num %}
+            <a href="?page={{ num }}&search={{ search }}&status={{ status }}&department={{ department }}" class="page-link {% if num == members.page %}active{% endif %}">{{ num }}</a>
+          {% else %}
+            <span class="page-link disabled">...</span>
+          {% endif %}
+        {% endfor %}
+        {% if members.has_next %}
+          <a href="?page={{ members.next_num }}&search={{ search }}&status={{ status }}&department={{ department }}" class="page-link"><i class="bi bi-chevron-right"></i></a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon"><i class="bi bi-people"></i></div>
+      <h5>No Members Found</h5>
+      <p>Try adjusting your search or add a new member.</p>
+      <a href="{{ url_for('members.add') }}" class="btn btn-primary"><i class="bi bi-person-plus"></i> Add Member</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var searchInput = document.getElementById('searchInput');
+var statusFilter = document.getElementById('statusFilter');
+var deptFilter = document.getElementById('deptFilter');
+
+function applyFilters() {
+  var params = new URLSearchParams();
+  if (searchInput.value) params.set('search', searchInput.value);
+  if (statusFilter.value) params.set('status', statusFilter.value);
+  if (deptFilter.value) params.set('department', deptFilter.value);
+  window.location.href = '?' + params.toString();
+}
+
+var debounce;
+searchInput.addEventListener('input', function() {
+  clearTimeout(debounce);
+  debounce = setTimeout(applyFilters, 500);
+});
+statusFilter.addEventListener('change', applyFilters);
+deptFilter.addEventListener('change', applyFilters);
+</script>
+{% endblock %}

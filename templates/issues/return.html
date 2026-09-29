@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% block title %}Return Book{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="d-flex align-center justify-between">
+    <div>
+      <div class="breadcrumb"><a href="{{ url_for('dashboard.index') }}">Home</a> <i class="bi bi-chevron-right"></i> Return Book</div>
+      <h1 class="page-title">Process Returns</h1>
+      <p class="page-subtitle">{{ active_issues.total }} books currently issued</p>
+    </div>
+  </div>
+</div>
+
+<div class="filter-bar">
+  <div class="search-input-wrapper" style="flex:2;">
+    <i class="bi bi-search"></i>
+    <input type="text" class="form-control" id="searchInput" placeholder="Search by member or book..." value="{{ search }}">
+  </div>
+  <div style="display:flex;align-items:flex-end;">
+    <a href="{{ url_for('issues.return_book') }}" class="btn btn-outline-secondary">Reset</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body" style="padding:0;">
+    {% if active_issues.items %}
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Member</th>
+            <th>Book</th>
+            <th>Issue Date</th>
+            <th>Due Date</th>
+            <th>Days Left / Overdue</th>
+            <th>Status</th>
+            <th>Return</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for issue in active_issues.items %}
+          <tr>
+            <td>
+              <div style="font-weight:600;"><a href="{{ url_for('members.view', id=issue.member_id) }}">{{ issue.member.name }}</a></div>
+              <div style="font-size:0.78rem;color:#6c757d;">{{ issue.member.member_id }}</div>
+            </td>
+            <td>
+              <div class="book-thumb">
+                <div class="book-cover"><i class="bi bi-book"></i></div>
+                <div>
+                  <div class="book-thumb-title">{{ issue.book.title | truncate(30) }}</div>
+                  <div class="book-thumb-author">{{ issue.book.author }}</div>
+                </div>
+              </div>
+            </td>
+            <td style="font-size:0.85rem;">{{ issue.issue_date.strftime('%d %b %Y') }}</td>
+            <td style="font-size:0.85rem;">{{ issue.due_date.strftime('%d %b %Y') }}</td>
+            <td>
+              {% if issue.is_overdue %}
+                <span class="due-badge overdue">{{ issue.overdue_days }} days overdue</span>
+              {% elif issue.days_remaining <= 3 %}
+                <span class="due-badge soon">{{ issue.days_remaining }} days left</span>
+              {% else %}
+                <span class="due-badge ok">{{ issue.days_remaining }} days left</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if issue.is_overdue %}
+                <span class="badge badge-danger">Overdue</span>
+              {% else %}
+                <span class="badge badge-info">Issued</span>
+              {% endif %}
+            </td>
+            <td>
+              <form method="POST" action="{{ url_for('issues.return_book') }}" style="display:flex;gap:0.4rem;align-items:center;">
+                <input type="hidden" name="issue_id" value="{{ issue.id }}">
+                <input type="date" name="return_date" value="{{ today.isoformat() }}" style="width:130px;padding:0.3rem 0.5rem;border:1px solid #dee2e6;border-radius:6px;font-size:0.8rem;">
+                <button type="submit" class="btn btn-sm btn-success" title="Mark as Returned">
+                  <i class="bi bi-arrow-return-left"></i> Return
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if active_issues.pages > 1 %}
+    <div style="padding:1rem; border-top:1px solid #f0f0f0;">
+      <div class="pagination">
+        {% if active_issues.has_prev %}<a href="?page={{ active_issues.prev_num }}&search={{ search }}" class="page-link"><i class="bi bi-chevron-left"></i></a>{% endif %}
+        {% for num in active_issues.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+          {% if num %}
+            <a href="?page={{ num }}&search={{ search }}" class="page-link {% if num == active_issues.page %}active{% endif %}">{{ num }}</a>
+          {% else %}<span class="page-link disabled">...</span>{% endif %}
+        {% endfor %}
+        {% if active_issues.has_next %}<a href="?page={{ active_issues.next_num }}&search={{ search }}" class="page-link"><i class="bi bi-chevron-right"></i></a>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon"><i class="bi bi-check-circle"></i></div>
+      <h5>No Active Issues</h5>
+      <p>All books have been returned.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+var s = document.getElementById('searchInput');
+var t; s.addEventListener('input', function() { clearTimeout(t); t = setTimeout(function() { window.location.href = '?search=' + encodeURIComponent(s.value); }, 500); });
+</script>
+{% endblock %}

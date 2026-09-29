@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% block title %}Issue Book{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="breadcrumb">
+    <a href="{{ url_for('dashboard.index') }}">Home</a> <i class="bi bi-chevron-right"></i> Issue Book
+  </div>
+  <h1 class="page-title">Issue a Book</h1>
+  <p class="page-subtitle">Select a member and a book to create a new issue record.</p>
+</div>
+
+<div style="display:grid; grid-template-columns:1fr 320px; gap:1.5rem;">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><i class="bi bi-box-arrow-up-right"></i> Issue Details</span>
+    </div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('issues.issue_book') }}" data-validate>
+        <input type="hidden" name="default_borrow_days" id="default_borrow_days" value="{{ default_days }}">
+        <input type="hidden" name="member_id" id="member_id">
+        <input type="hidden" name="book_id" id="book_id">
+
+        <div class="form-group">
+          <label class="form-label">Select Member <span class="required">*</span></label>
+          <div class="autocomplete-wrapper">
+            <input type="text" class="form-control" id="memberSearch" placeholder="Search by name, email, or member ID..." autocomplete="off">
+            <div class="autocomplete-results" id="memberResults"></div>
+          </div>
+          <span class="form-text">Type at least 2 characters to search</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Select Book <span class="required">*</span></label>
+          <div class="autocomplete-wrapper">
+            <input type="text" class="form-control" id="bookSearch" placeholder="Search by title, author, or ISBN..." autocomplete="off">
+            <div class="autocomplete-results" id="bookResults"></div>
+          </div>
+          <span class="form-text">Only books with available copies are shown</span>
+        </div>
+
+        <div id="bookAvailability"></div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Issue Date <span class="required">*</span></label>
+            <input type="date" class="form-control" name="issue_date" id="issue_date" value="{{ today.isoformat() }}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Due Date <span class="required">*</span></label>
+            <input type="date" class="form-control" name="due_date" id="due_date" required>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:0.75rem; justify-content:flex-end; margin-top:1rem;">
+          <a href="{{ url_for('issues.index') }}" class="btn btn-outline-secondary">Cancel</a>
+          <button type="submit" class="btn btn-primary" id="issueBtn">
+            <i class="bi bi-box-arrow-up-right"></i> Issue Book
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Info Sidebar -->
+  <div>
+    <div class="card">
+      <div class="card-header"><span class="card-title"><i class="bi bi-info-circle"></i> Issue Policy</span></div>
+      <div class="card-body">
+        <div class="activity-item">
+          <div class="activity-icon issued"><i class="bi bi-calendar-check"></i></div>
+          <div class="activity-content">
+            <div class="activity-text">Default borrow period</div>
+            <div class="activity-meta">{{ default_days }} days</div>
+          </div>
+        </div>
+        <div class="activity-item">
+          <div class="activity-icon issued"><i class="bi bi-currency-rupee"></i></div>
+          <div class="activity-content">
+            <div class="activity-text">Fine per overdue day</div>
+            <div class="activity-meta">₹5 per day</div>
+          </div>
+        </div>
+        <div class="activity-item">
+          <div class="activity-icon issued"><i class="bi bi-book"></i></div>
+          <div class="activity-content">
+            <div class="activity-text">Max books per member</div>
+            <div class="activity-meta">5 books</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Set default due date on load
+var issueDate = document.getElementById('issue_date');
+var dueDate = document.getElementById('due_date');
+var days = parseInt(document.getElementById('default_borrow_days').value || 14);
+if (issueDate.value) {
+  var d = new Date(issueDate.value);
+  d.setDate(d.getDate() + days);
+  dueDate.value = d.toISOString().split('T')[0];
+}
+</script>
+{% endblock %}
