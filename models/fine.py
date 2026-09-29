@@ -54,12 +54,14 @@ class Fine:
 
     def save(self):
         get_db().collection(self.COLLECTION).document(self.id).set(self._to_dict())
+        Fine._cache_get_all = {}
         return self
 
     def update(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
         get_db().collection(self.COLLECTION).document(self.id).update(kwargs)
+        Fine._cache_get_all = {}
         return self
 
     # ── Class-level queries ──────────────────────────────────────────────────
@@ -86,14 +88,26 @@ class Fine:
             return cls._from_doc(doc)
         return None
 
+    _cache_get_all = {}
+    _cache_get_all_time = {}
+
     @classmethod
     def get_all(cls, status=None):
+        import time
+        cache_key = status or 'all'
+        if cache_key in cls._cache_get_all and (time.time() - cls._cache_get_all_time.get(cache_key, 0)) < 30:
+            return cls._cache_get_all[cache_key]
+
         q = get_db().collection(cls.COLLECTION)
         if status:
             q = q.where('status', '==', status)
         docs = q.stream()
         fines = [cls._from_doc(d) for d in docs if d.to_dict()]
         fines.sort(key=lambda f: f.created_at or datetime.min, reverse=True)
+        
+        cls._cache_get_all[cache_key] = fines
+        cls._cache_get_all_time[cache_key] = time.time()
+        
         return fines
 
     @classmethod

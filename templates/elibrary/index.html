@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}E-Library{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="d-flex align-center justify-between">
+    <div>
+      <h1 class="page-title">E-Library Resources</h1>
+      <p class="page-subtitle">Access digital books, lecture notes, and study materials.</p>
+    </div>
+    {% if current_user and (current_user.is_admin() or current_user.is_librarian()) %}
+    <a href="{{ url_for('elibrary.add') }}" class="btn btn-primary">
+      <i class="bi bi-cloud-arrow-up"></i> Upload Resource
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body" style="padding:0;">
+    <ul class="activity-list" style="padding: 1rem;">
+      {% for r in resources %}
+      <li class="activity-item d-flex justify-between align-center" style="margin-bottom: 0.75rem;">
+        <div>
+          <strong>{{ r.title }}</strong>
+          <span class="badge badge-info" style="margin-left: 0.5rem; font-size:0.7rem;">{{ r.category }}</span>
+          {% if r.access_level != 'PUBLIC' %}
+          <span class="badge badge-warning" style="margin-left: 0.25rem; font-size:0.7rem;">{{ r.access_level | replace('_', ' ') }}</span>
+          {% endif %}
+          <br>
+          <small class="text-muted">{{ r.author }} &bull; {{ r.description | truncate(60) }}</small>
+        </div>
+        <div>
+          <a href="{{ r.file_url or '#' }}" class="btn btn-sm btn-outline-primary" target="_blank">
+            <i class="bi bi-download"></i> Access
+          </a>
+        </div>
+      </li>
+      {% else %}
+      <li class="activity-item text-muted py-4 text-center">No digital resources available.</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endblock %}

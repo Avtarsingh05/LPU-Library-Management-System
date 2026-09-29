@@ -160,6 +160,35 @@
         <div style="font-size:0.78rem; color:#6c757d; margin-top:0.4rem; text-align:center;">{{ '%.0f'|format(pct) }}% available</div>
       </div>
     </div>
+    
+    <!-- Physical Copies Locations -->
+    {% if library_copies %}
+    <div class="card" style="margin-top:1.5rem;">
+      <div class="card-header">
+        <span class="card-title"><i class="bi bi-geo-alt"></i> Available Locations</span>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <ul class="activity-list" style="padding: 1rem; margin: 0;">
+        {% for lib_id, data in library_copies.items() %}
+          {% set available_in_lib = data.copies | selectattr('status', 'eq', 'AVAILABLE') | list | length %}
+          <li class="activity-item d-flex justify-between align-center" style="margin-bottom:0.5rem; border-bottom:1px solid #f0f0f0; padding-bottom:0.5rem;">
+            <div>
+              <strong>{{ data.library.name if data.library else 'Unknown Library' }}</strong><br>
+              <small class="text-muted">{{ data.copies | length }} Total Copies</small>
+            </div>
+            <div>
+              {% if available_in_lib > 0 %}
+                <span class="badge badge-success">{{ available_in_lib }} Available</span>
+              {% else %}
+                <span class="badge badge-danger">0 Available</span>
+              {% endif %}
+            </div>
+          </li>
+        {% endfor %}
+        </ul>
+      </div>
+    </div>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

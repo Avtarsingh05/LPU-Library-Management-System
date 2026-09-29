@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% block title %}AI Library Assistant{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="d-flex align-center justify-between">
+    <div>
+      <h1 class="page-title"><i class="bi bi-robot" style="color:#2980b9;"></i> LibraAI Assistant</h1>
+      <p class="page-subtitle">Ask questions about books, your fines, or your borrowed items in natural language.</p>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; height: 60vh;">
+  <div class="card-body" id="chatWindow" style="flex: 1; overflow-y: auto; padding: 1.5rem; background: #f8f9fa;">
+    <div style="display:flex; margin-bottom: 1rem;">
+      <div style="background: #fff; border: 1px solid #dee2e6; border-radius: 12px; padding: 0.75rem 1rem; max-width: 80%;">
+        <strong>LibraAI</strong><br>
+        Hello! I'm your AI library assistant. How can I help you today?
+      </div>
+    </div>
+  </div>
+  <div class="card-footer" style="padding: 1rem; background: #fff; border-top: 1px solid #dee2e6;">
+    <form id="chatForm" style="display:flex; gap: 0.5rem;" onsubmit="sendMessage(event)">
+      <input type="text" id="queryInput" class="form-control" placeholder="E.g. Which books do I currently have?" autocomplete="off" required>
+      <button type="submit" class="btn btn-primary" id="sendBtn"><i class="bi bi-send"></i></button>
+    </form>
+  </div>
+</div>
+
+<script>
+async function sendMessage(e) {
+  e.preventDefault();
+  const input = document.getElementById('queryInput');
+  const query = input.value.trim();
+  if (!query) return;
+
+  const chatWindow = document.getElementById('chatWindow');
+  const btn = document.getElementById('sendBtn');
+  
+  // Append user message
+  const userDiv = document.createElement('div');
+  userDiv.style = "display:flex; justify-content:flex-end; margin-bottom: 1rem;";
+  userDiv.innerHTML = `<div style="background: #e3f2fd; border: 1px solid #bbdefb; border-radius: 12px; padding: 0.75rem 1rem; max-width: 80%;">
+    <strong>You</strong><br>${query}
+  </div>`;
+  chatWindow.appendChild(userDiv);
+  chatWindow.scrollTop = chatWindow.scrollHeight;
+
+  input.value = '';
+  input.disabled = true;
+  btn.disabled = true;
+
+  try {
+    const res = await fetch("{{ url_for('ai.assistant') }}", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query })
+    });
+    const data = await res.json();
+
+    // Append AI response
+    const aiDiv = document.createElement('div');
+    aiDiv.style = "display:flex; margin-bottom: 1rem;";
+    
+    // Simple markdown parsing for bold and line breaks
+    let formattedText = data.response.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    formattedText = formattedText.replace(/\n/g, '<br>');
+    
+    aiDiv.innerHTML = `<div style="background: #fff; border: 1px solid #dee2e6; border-radius: 12px; padding: 0.75rem 1rem; max-width: 80%;">
+      <strong>LibraAI</strong><br>${formattedText}
+    </div>`;
+    chatWindow.appendChild(aiDiv);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+  } catch (err) {
+    console.error(err);
+  } finally {
+    input.disabled = false;
+    btn.disabled = false;
+    input.focus();
+  }
+}
+</script>
+{% endblock %}

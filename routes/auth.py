@@ -8,6 +8,7 @@ from models.member import Member
 from functools import wraps
 import random
 import string
+import os
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -24,9 +25,13 @@ def login_required(f):
             user_id = str(session.get('user_id'))
             try:
                 member = Member.get_by_user_id(user_id)
-                if member and not member.department:
-                    flash('Please complete your profile details to continue.', 'info')
-                    return redirect(url_for('auth.onboarding'))
+                if member:
+                    if not member.department:
+                        flash('Please complete your profile details to continue.', 'info')
+                        return redirect(url_for('auth.onboarding'))
+                    elif member.verification_status == 'rejected':
+                        flash(f'Your ID card was rejected by the admin. Reason: {member.rejection_reason}. Please upload a valid ID.', 'danger')
+                        return redirect(url_for('auth.onboarding'))
             except Exception:
                 pass
 
@@ -40,7 +45,7 @@ def admin_required(f):
         if 'user_id' not in session:
             flash('Please log in to access this page.', 'warning')
             return redirect(url_for('auth.login'))
-        if session.get('user_role') != 'admin':
+        if session.get('user_role') not in ['admin', 'super_admin', 'librarian']:
             flash('You do not have permission to access this page.', 'danger')
             return redirect(url_for('dashboard.index'))
         return f(*args, **kwargs)
@@ -53,7 +58,10 @@ def get_current_user():
     return None
 
 
+from extensions import limiter
+
 @auth_bp.route('/login', methods=['GET', 'POST'])
+@limiter.limit("10 per minute")
 def login():
     if 'user_id' in session:
         return redirect(url_for('dashboard.index'))
@@ -78,28 +86,30 @@ def login():
                         user_data = r.json().get('users', [{}])[0]
                         google_email = user_data.get('email')
                         google_name = user_data.get('displayName', 'Google User')
+                        google_photo = user_data.get('photoUrl', '')
+                        if not google_photo:
+                            import hashlib
+                            email_hash = hashlib.md5(google_email.lower().encode('utf-8')).hexdigest()
+                            google_photo = f"https://www.gravatar.com/avatar/{email_hash}?d=identicon"
 
                         user = User.get_by_email(google_email)
                         if not user:
                             import os
-                            user = User(name=google_name, email=google_email, role='member')
+                            user = User(name=google_name, email=google_email, role='member', profile_pic=google_photo)
                             user.set_password('google_' + os.urandom(8).hex())
                             user.save()
 
                             # Create member profile
-                            year = __import__('datetime').date.today().year
-                            suffix = ''.join(random.choices(string.digits, k=4))
-                            member_id_str = f'LIB{year}{suffix}'
-                            while Member.get_by_member_id(member_id_str):
-                                suffix = ''.join(random.choices(string.digits, k=4))
-                                member_id_str = f'LIB{year}{suffix}'
                             member = Member(
-                                member_id=member_id_str,
+                                member_id="PENDING",
                                 user_id=user.id,
                                 name=google_name,
-                                email=google_email
+                                email=google_email,
+                                verification_status="pending"
                             )
                             member.save()
+                        elif not user.profile_pic:
+                            user.update(profile_pic=google_photo)
 
                         session.permanent = True
                         session['user_id'] = user.id
@@ -144,9 +154,18 @@ def login():
                 if r.status_code == 200:
                     is_authenticated = True
                     if not user:
-                        user = User(name=email.split('@')[0], email=email, role='member')
+                        import hashlib
+                        email_hash = hashlib.md5(email.lower().encode('utf-8')).hexdigest()
+                        gravatar = f"https://www.gravatar.com/avatar/{email_hash}?d=identicon"
+                        
+                        user = User(name=email.split('@')[0], email=email, role='member', profile_pic=gravatar)
                         user.set_password(password)
                         user.save()
+                    elif not user.profile_pic:
+                        import hashlib
+                        email_hash = hashlib.md5(email.lower().encode('utf-8')).hexdigest()
+                        gravatar = f"https://www.gravatar.com/avatar/{email_hash}?d=identicon"
+                        user.update(profile_pic=gravatar)
             except Exception:
                 pass
 
@@ -171,6 +190,77 @@ def login():
 
     return render_template('login.html')
 
+@auth_bp.route('/signup', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")
+def signup():
+    if 'user_id' in session:
+        return redirect(url_for('dashboard.index'))
+        
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
+        
+        if not name or not email or not password:
+            flash('All fields are required.', 'danger')
+            return render_template('signup.html')
+            
+        if len(password) < 6:
+            flash('Password must be at least 6 characters long.', 'danger')
+            return render_template('signup.html')
+            
+        existing_user = User.get_by_email(email)
+        if existing_user:
+            flash('An account with this email already exists. Please log in.', 'warning')
+            return redirect(url_for('auth.login'))
+            
+        from flask import current_app
+        import requests as req
+        api_key = current_app.config.get('FIREBASE_API_KEY')
+        
+        # Optionally create in Firebase Auth via REST API if configured
+        if api_key and api_key != 'your_firebase_api_key_here':
+            url = f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={api_key}"
+            try:
+                r = req.post(url, json={"email": email, "password": password, "returnSecureToken": True}, timeout=10)
+                if r.status_code != 200:
+                    error_msg = r.json().get('error', {}).get('message', 'Firebase Error')
+                    flash(f'Sign up failed: {error_msg.replace("_", " ").title()}', 'danger')
+                    return render_template('signup.html')
+            except Exception:
+                # Silently fail Firebase API integration and fallback to local DB if network issue
+                pass
+                
+        import hashlib
+        email_hash = hashlib.md5(email.lower().encode('utf-8')).hexdigest()
+        gravatar = f"https://www.gravatar.com/avatar/{email_hash}?d=identicon"
+        
+        user = User(name=name, email=email, role='member', profile_pic=gravatar)
+        user.set_password(password)
+        user.save()
+        
+        # Auto-login after signup
+        session.permanent = True
+        session['user_id'] = user.id
+        session['user_name'] = user.name
+        session['user_role'] = user.role
+        session['user_email'] = user.email
+        
+        # Create initial Member record
+        member = Member(
+            member_id="PENDING",
+            user_id=user.id,
+            name=user.name,
+            email=user.email,
+            verification_status="pending"
+        )
+        member.save()
+        
+        flash('Account created successfully! Please complete your profile setup.', 'success')
+        return redirect(url_for('auth.onboarding'))
+        
+    return render_template('signup.html')
+
 
 @auth_bp.route('/logout')
 def logout():
@@ -192,7 +282,8 @@ def onboarding():
     if not member:
         return redirect(url_for('auth.login'))
 
-    if member.department and request.method == 'GET':
+    if member.department and member.verification_status != 'rejected':
+        # If they already completed onboarding profile fields, just go to dashboard
         return redirect(url_for('dashboard.index'))
 
     if request.method == 'POST':
@@ -207,6 +298,24 @@ def onboarding():
         if not department: errors.append('Department is required.')
         if not course: errors.append('Course is required.')
 
+        id_card_file = request.files.get('id_card')
+        id_card_url = member.id_card_url
+        if id_card_file and id_card_file.filename:
+            id_card_file.seek(0, os.SEEK_END)
+            size = id_card_file.tell()
+            id_card_file.seek(0)
+            if size > 500 * 1024:
+                errors.append("ID Card image size exceeds 500KB limit.")
+            else:
+                import cloudinary.uploader
+                try:
+                    upload_result = cloudinary.uploader.upload(id_card_file)
+                    id_card_url = upload_result.get('secure_url')
+                except Exception as e:
+                    errors.append(f"Image upload failed: {str(e)}")
+        elif not id_card_url:
+            errors.append('ID Card image is required for verification.')
+
         if errors:
             for e in errors:
                 flash(e, 'danger')
@@ -216,9 +325,11 @@ def onboarding():
                 department=department,
                 course=course,
                 semester=semester,
-                address=address
+                address=address,
+                id_card_url=id_card_url,
+                verification_status='pending'
             )
-            flash('Profile completed successfully! Welcome to the library.', 'success')
+            flash('Profile updated! Your account is pending admin verification, but you can now explore the library.', 'success')
             return redirect(url_for('dashboard.index'))
 
     DEPARTMENTS = [
@@ -236,18 +347,63 @@ def init_admin():
     try:
         existing = User.get_by_email('avtar10@admin.com')
         if not existing:
-            admin = User(name='System Admin', email='avtar10@admin.com', role='admin')
+            admin = User(name='System Admin', email='avtar10@admin.com', role='super_admin')
             admin.set_password('Avtar@10')
             admin.save()
             results['status'] = 'Created avtar10@admin.com in Firestore!'
             results['id'] = admin.id
         else:
             existing.set_password('Avtar@10')
+            existing.role = 'super_admin'
             existing.save()
-            results['status'] = 'Updated avtar10@admin.com password in Firestore!'
+            results['status'] = 'Updated avtar10@admin.com password and role in Firestore!'
             results['id'] = existing.id
         results['db'] = 'Firestore'
     except Exception as e:
         results['error'] = str(e)
         results['type'] = str(type(e))
     return jsonify(results)
+
+@auth_bp.route('/reupload_id', methods=['POST'])
+@login_required
+def reupload_id():
+    user = get_current_user()
+    if not user:
+        return redirect(url_for('auth.login'))
+        
+    member_profiles = user.member_profile
+    if not member_profiles:
+        return redirect(url_for('dashboard.index'))
+        
+    member = member_profiles[0]
+    if member.verification_status != 'rejected':
+        flash("Your ID is not in a rejected state.", "info")
+        return redirect(url_for('dashboard.index'))
+        
+    file = request.files.get('id_card')
+    if not file or not file.filename:
+        flash("Please provide an image.", "danger")
+        return redirect(url_for('dashboard.index'))
+        
+    # Check size
+    file.seek(0, os.SEEK_END)
+    size = file.tell()
+    file.seek(0)
+    if size > 500 * 1024:
+        flash("Image size exceeds 500KB limit.", "danger")
+        return redirect(url_for('dashboard.index'))
+        
+    try:
+        import cloudinary.uploader
+        result = cloudinary.uploader.upload(file)
+        
+        member.update(
+            id_card_url=result.get('secure_url'),
+            verification_status='pending',
+            rejection_reason=''
+        )
+        flash("ID card re-uploaded successfully. Awaiting admin approval.", "success")
+    except Exception as e:
+        flash(f"Error uploading image: {str(e)}", "danger")
+        
+    return redirect(url_for('dashboard.index'))

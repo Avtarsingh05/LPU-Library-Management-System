@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block title %}Upload E-Resource{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="d-flex align-center justify-between">
+    <div>
+      <h1 class="page-title">Upload E-Resource</h1>
+      <p class="page-subtitle">Add a new digital asset to the E-Library.</p>
+    </div>
+    <a href="{{ url_for('elibrary.index') }}" class="btn btn-outline-secondary">Back to E-Library</a>
+  </div>
+</div>
+
+<div class="card" style="max-width: 600px; margin: 0 auto;">
+  <div class="card-body">
+    <form method="POST">
+      <div class="form-group">
+        <label class="form-label" for="title">Title *</label>
+        <input type="text" id="title" name="title" class="form-control" required placeholder="Resource Title">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="author">Author / Publisher</label>
+        <input type="text" id="author" name="author" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="category">Category</label>
+        <input type="text" id="category" name="category" class="form-control" placeholder="e.g. Lecture Notes">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="description">Description</label>
+        <textarea id="description" name="description" class="form-control" rows="3"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="file_url">File URL (Mock Upload) *</label>
+        <input type="url" id="file_url" name="file_url" class="form-control" required placeholder="https://...">
+        <span class="form-text">In a real scenario, this would use Firebase Storage upload.</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="access_level">Access Level</label>
+        <select id="access_level" name="access_level" class="form-control">
+          <option value="PUBLIC">Public (All)</option>
+          <option value="MEMBERS_ONLY">Members Only</option>
+          <option value="LIBRARY_ONLY">Library Specific</option>
+          <option value="ADMIN_ONLY">Admin Only</option>
+        </select>
+      </div>
+      
+      <div class="mt-4 text-end">
+        <button type="submit" class="btn btn-primary">Upload Resource</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

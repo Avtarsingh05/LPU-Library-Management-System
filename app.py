@@ -1,11 +1,21 @@
-from flask import Flask, render_template, session
+from flask import Flask, render_template, session, request
 from config import config
 import os
-
+from extensions import limiter
 
 def create_app(config_name='default'):
     app = Flask(__name__)
     app.config.from_object(config[config_name])
+
+    # Initialize rate limiter
+    limiter.init_app(app)
+
+    import cloudinary
+    cloudinary.config(
+        cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME', ''),
+        api_key = os.environ.get('CLOUDINARY_API_KEY', ''),
+        api_secret = os.environ.get('CLOUDINARY_API_SECRET', '')
+    )
 
     # Register blueprints
     from routes.auth import auth_bp
@@ -17,6 +27,9 @@ def create_app(config_name='default'):
     from routes.reservations import reservations_bp
     from routes.reports import reports_bp
     from routes.settings import settings_bp
+    from routes.libraries import libraries_bp
+    from routes.e_library import elibrary_bp
+    from routes.ai_assistant import ai_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
@@ -27,6 +40,9 @@ def create_app(config_name='default'):
     app.register_blueprint(reservations_bp)
     app.register_blueprint(reports_bp)
     app.register_blueprint(settings_bp)
+    app.register_blueprint(libraries_bp)
+    app.register_blueprint(elibrary_bp)
+    app.register_blueprint(ai_bp)
 
     # ── Context processor ────────────────────────────────────────────────────
     @app.context_processor
@@ -40,8 +56,19 @@ def create_app(config_name='default'):
             if 'user_id' in session:
                 from models.user import User
                 user = User.get_by_id(str(session['user_id']))
+                
+                if user:
+                    from models.notification import Notification
+                    db_notifs = Notification.get_by_user(user.id, unread_only=True)
+                    for n in db_notifs:
+                        notifications.append({
+                            'id': n.id,
+                            'type': n.type,
+                            'message': n.message,
+                            'title': n.title
+                        })
 
-            if user and user.role == 'admin':
+            if user and user.is_admin():
                 from models.issue import Issue
                 overdue = Issue.get_overdue()
                 if overdue:
@@ -61,7 +88,7 @@ def create_app(config_name='default'):
                             'type': 'danger',
                             'message': f'You have {len(overdue)} overdue book(s)'
                         })
-        except Exception:
+        except Exception as e:
             pass
 
         try:
@@ -97,6 +124,10 @@ def create_app(config_name='default'):
     def forbidden(e):
         return render_template('errors/403.html'), 403
 
+    @app.errorhandler(429)
+    def ratelimit_handler(e):
+        return render_template('errors/429.html', error=e), 429
+
     @app.errorhandler(500)
     def server_error(e):
         try:
@@ -109,12 +140,14 @@ def create_app(config_name='default'):
         from models.user import User
         existing = User.get_by_email('avtar10@admin.com')
         if not existing:
-            admin = User(name='System Admin', email='avtar10@admin.com', role='admin')
+            admin = User(name='System Admin', email='avtar10@admin.com', role='super_admin')
             admin.set_password('Avtar@10')
             admin.save()
         else:
-            # Always ensure password is current
+            # Always ensure password is current and role is upgraded to super_admin
             existing.set_password('Avtar@10')
+            if existing.role == 'admin':
+                existing.role = 'super_admin'
             existing.save()
     except Exception as e:
         app.logger.warning(f"Admin seed note (Firestore may not be ready): {e}")

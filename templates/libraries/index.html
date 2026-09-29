@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% block title %}Libraries{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="d-flex align-center justify-between">
+    <div>
+      <h1 class="page-title">Manage Libraries</h1>
+      <p class="page-subtitle">Super Admin control center for all platform libraries.</p>
+    </div>
+    <a href="{{ url_for('libraries.add') }}" class="btn btn-primary">
+      <i class="bi bi-plus-lg"></i> Add Library
+    </a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body" style="padding: 0;">
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Code</th>
+            <th>Status</th>
+            <th>Address</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for lib in libraries %}
+          <tr>
+            <td><strong>{{ lib.name }}</strong></td>
+            <td><code>{{ lib.code }}</code></td>
+            <td>
+              {% if lib.status == 'active' %}
+              <span class="badge badge-success">Active</span>
+              {% else %}
+              <span class="badge badge-danger">{{ lib.status | capitalize }}</span>
+              {% endif %}
+            </td>
+            <td>{{ lib.address }}</td>
+            <td class="text-end">
+              <a href="{{ url_for('libraries.manage_librarians', lib_id=lib.id) }}" class="btn btn-sm btn-outline-secondary" title="Manage Librarians">
+                <i class="bi bi-person-badge"></i>
+              </a>
+              <a href="{{ url_for('libraries.edit', lib_id=lib.id) }}" class="btn btn-sm btn-outline-primary" title="Edit">
+                <i class="bi bi-pencil"></i>
+              </a>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="5" class="text-center py-4">No libraries found. Add one to get started.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

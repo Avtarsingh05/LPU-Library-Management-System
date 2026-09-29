@@ -22,7 +22,7 @@ def index():
         session.clear()
         return __import__('flask').redirect(__import__('flask').url_for('auth.login'))
 
-    if user.role == 'admin':
+    if user.is_admin() or user.is_librarian():
         return _admin_dashboard(user)
     else:
         return _member_dashboard(user)
@@ -33,14 +33,34 @@ def _admin_dashboard(user):
     today_str = today.isoformat()
 
     try:
-        total_books = Book.count()
-        available_books = Book.total_available()
         all_issues = Issue.get_all()
+        all_fines = Fine.get_all(status='pending')
+        
+        # Super Admin vs Librarian Filtering
+        if user.role == 'librarian':
+            assigned_libs = user.get_assigned_library_ids()
+            all_issues = [i for i in all_issues if i.library_id in assigned_libs]
+            
+            # Since Book covers all libraries, if a librarian manages a library, they only see stats for physical copies they manage.
+            from models.book_copy import BookCopy
+            all_copies = BookCopy.get_all()
+            my_copies = [c for c in all_copies if c.library_id in assigned_libs]
+            total_books = len(my_copies)
+            available_books = sum(1 for c in my_copies if c.status == 'AVAILABLE')
+        else:
+            total_books = Book.count()
+            available_books = Book.total_available()
+
         issued_books = sum(1 for i in all_issues if i.status == 'issued')
         total_members = Member.count()
-        overdue_issues_list = Issue.get_overdue()
+        overdue_issues_list = [i for i in all_issues if i.status == 'issued' and i.is_overdue]
         overdue_books = len(overdue_issues_list)
-        all_fines = Fine.get_all(status='pending')
+        
+        if user.role == 'librarian':
+            # Fines are tied to issues. We can filter fines by checking if they relate to an issue in this library.
+            issue_ids = {i.id for i in all_issues}
+            all_fines = [f for f in all_fines if f.issue_id in issue_ids]
+            
         pending_fines = sum(f.amount for f in all_fines)
 
         # Recent issues (last 10)
@@ -75,6 +95,8 @@ def _admin_dashboard(user):
 
         # Monthly fine collection
         paid_fines = Fine.get_all(status='paid')
+        if user.role == 'librarian':
+            paid_fines = [f for f in paid_fines if f.issue_id in issue_ids]
         month_fines = {}
         for f in paid_fines:
             if f.paid_date:
@@ -87,6 +109,32 @@ def _admin_dashboard(user):
                 except Exception:
                     pass
         monthly_fines = [[k, v] for k, v in sorted(month_fines.items())]
+        
+        # Insights Generation
+        insights = []
+        if len(overdue_issues_list) > 5:
+            insights.append(f"High number of overdue books ({len(overdue_issues_list)}). Consider sending reminders.")
+        if pending_fines > 1000:
+            insights.append(f"Significant pending fines (₹{pending_fines:.0f}).")
+        
+        popular_categories = sorted(cat_counts.items(), key=lambda x: x[1], reverse=True)
+        if popular_categories:
+            insights.append(f"'{popular_categories[0][0]}' is your top category with {popular_categories[0][1]} books.")
+            
+        # Check demand (reservations)
+        from models.issue import Reservation
+        all_res = Reservation.get_all(status='pending')
+        if all_res:
+            res_by_book = {}
+            for r in all_res:
+                res_by_book[r.book_id] = res_by_book.get(r.book_id, 0) + 1
+            if res_by_book:
+                top_book_id = max(res_by_book, key=res_by_book.get)
+                # If librarian, check if they manage this book's copies
+                if user.role != 'librarian' or any(c.book_id == top_book_id for c in my_copies):
+                    top_book = Book.get_by_id(top_book_id)
+                    if top_book:
+                        insights.append(f"'{top_book.title}' has {res_by_book[top_book_id]} active reservations. Consider purchasing additional copies.")
 
     except Exception as e:
         # Graceful fallback if Firestore isn't ready yet
@@ -94,6 +142,7 @@ def _admin_dashboard(user):
         overdue_books = pending_fines = 0
         recent_issues = overdue_issues = []
         daily_issues = category_stats = monthly_returns = monthly_fines = []
+        insights = []
 
     return render_template('dashboard.html',
         user=user,
@@ -109,6 +158,7 @@ def _admin_dashboard(user):
         category_stats=category_stats,
         monthly_returns=monthly_returns,
         monthly_fines=monthly_fines,
+        insights=insights
     )
 
 
@@ -154,3 +204,12 @@ def _member_dashboard(user):
         outstanding_fines=outstanding_fines,
         popular_books=popular_books,
     )
+@dashboard_bp.route('/notifications/read', methods=['POST'])
+def mark_notifications_read():
+    if 'user_id' not in session:
+        return {'status': 'error', 'message': 'Not logged in'}, 401
+    from models.notification import Notification
+    db_notifs = Notification.get_by_user(session['user_id'], unread_only=True)
+    for n in db_notifs:
+        n.update(is_read=True)
+    return {'status': 'success'}

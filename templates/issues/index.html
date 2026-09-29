@@ -43,17 +43,19 @@
             <th>#</th>
             <th>Member</th>
             <th>Book</th>
+            <th>Library (Copy)</th>
             <th>Issue Date</th>
             <th>Due Date</th>
             <th>Return Date</th>
             <th>Fine</th>
             <th>Status</th>
+            {% if current_user.is_super_admin() %}<th>Actions</th>{% endif %}
           </tr>
         </thead>
         <tbody>
           {% for issue in issues.items %}
           <tr>
-            <td style="color:#95a5a6;font-size:0.8rem;">#{{ issue.id }}</td>
+            <td style="color:#95a5a6;font-size:0.8rem;max-width:80px;overflow:hidden;text-overflow:ellipsis;">#{{ issue.id[:8] }}...</td>
             <td>
               <div style="font-weight:600;"><a href="{{ url_for('members.view', id=issue.member_id) }}">{{ issue.member.name }}</a></div>
               <div style="font-size:0.78rem;color:#6c757d;">{{ issue.member.member_id }}</div>
@@ -66,6 +68,10 @@
                   <div class="book-thumb-author">{{ issue.book.author }}</div>
                 </div>
               </div>
+            </td>
+            <td>
+              <div style="font-weight:500;font-size:0.85rem;">{{ issue.library_name }}</div>
+              <div style="font-size:0.75rem;color:#7f8c8d;">{{ issue.copy_id or '—' }}</div>
             </td>
             <td style="font-size:0.85rem;">{{ issue.issue_date.strftime('%d %b %Y') }}</td>
             <td style="font-size:0.85rem;">{{ issue.due_date.strftime('%d %b %Y') }}</td>
@@ -88,6 +94,13 @@
                 <span class="badge badge-success">Returned</span>
               {% endif %}
             </td>
+            {% if current_user.is_super_admin() %}
+            <td>
+              <form action="{{ url_for('issues.delete', id=issue.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to permanently delete this issue record?');">
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Issue"><i class="bi bi-trash"></i></button>
+              </form>
+            </td>
+            {% endif %}
           </tr>
           {% endfor %}
         </tbody>

@@ -6,6 +6,7 @@ from flask import Blueprint, render_template, redirect, url_for, request, flash,
 from models.book import Book
 from models.issue import Issue
 from routes.auth import login_required, admin_required
+import os
 
 books_bp = Blueprint('books', __name__, url_prefix='/books')
 
@@ -81,34 +82,85 @@ def add():
         description = request.form.get('description', '').strip()
         cover_image = request.form.get('cover_image', '').strip()
 
+        library_id = request.form.get('library_id', '').strip()
+
         errors = []
         if not isbn: errors.append('ISBN is required.')
         if not title: errors.append('Title is required.')
         if not author: errors.append('Author is required.')
         if not category: errors.append('Category is required.')
         if total_copies < 1: errors.append('Total copies must be at least 1.')
+        if not library_id: errors.append('Library assignment is required for new books.')
         if Book.get_by_isbn(isbn):
             errors.append(f'A book with ISBN {isbn} already exists.')
+
+        from models.library import Library
+        libraries = Library.get_all()
 
         if errors:
             for e in errors:
                 flash(e, 'danger')
             return render_template('books/add.html', categories=CATEGORIES,
-                                   languages=LANGUAGES, form_data=request.form)
+                                   languages=LANGUAGES, form_data=request.form, libraries=libraries)
+
+        # Handle 'all' libraries selection
+        target_libraries = [library_id]
+        copies_per_library = total_copies
+        if library_id == 'all':
+            target_libraries = [lib.id for lib in libraries]
+            
+        actual_total_copies = copies_per_library * len(target_libraries)
+
+        cover_file = request.files.get('cover_image_file')
+        if cover_file and cover_file.filename:
+            cover_file.seek(0, os.SEEK_END)
+            size = cover_file.tell()
+            cover_file.seek(0)
+            if size > 500 * 1024:
+                flash('Cover image size exceeds 500KB limit.', 'danger')
+                return render_template('books/add.html', categories=CATEGORIES, languages=LANGUAGES)
+            import cloudinary.uploader
+            try:
+                res = cloudinary.uploader.upload(cover_file)
+                cover_image = res.get('secure_url', cover_image)
+            except Exception as e:
+                flash(f"Cover image upload failed: {e}", 'warning')
 
         book = Book(
             isbn=isbn, title=title, author=author, category=category,
             publisher=publisher, publication_year=publication_year,
-            language=language, total_copies=total_copies,
-            available_copies=total_copies, shelf_location=shelf_location,
+            language=language, total_copies=actual_total_copies,
+            available_copies=actual_total_copies, shelf_location=shelf_location,
             description=description, cover_image=cover_image
         )
         book.save()
-        flash(f'Book "{title}" added successfully!', 'success')
+        
+        # Auto-generate physical copies for the selected librarie(s)
+        from models.book_copy import BookCopy
+        import uuid
+        for target_lib_id in target_libraries:
+            for i in range(copies_per_library):
+                copy_id = f"{target_lib_id}-{isbn}-{str(uuid.uuid4())[:8].upper()}"
+                BookCopy(
+                    id=copy_id,
+                    book_id=book.id,
+                    library_id=target_lib_id,
+                    status='AVAILABLE',
+                    condition='GOOD',
+                    rack=shelf_location
+                ).save()
+            
+        if library_id == 'all':
+            flash(f'Book "{title}" added! Generated {copies_per_library} copies for EACH of the {len(target_libraries)} libraries ({actual_total_copies} total).', 'success')
+        else:
+            flash(f'Book "{title}" added successfully with {actual_total_copies} physical copies in library {library_id}!', 'success')
+            
         return redirect(url_for('books.view', id=book.id))
 
+    from models.library import Library
+    libraries = Library.get_all()
     return render_template('books/add.html', categories=CATEGORIES,
-                           languages=LANGUAGES, form_data={})
+                           languages=LANGUAGES, form_data={}, libraries=libraries)
 
 
 @books_bp.route('/<id>')
@@ -119,7 +171,22 @@ def view(id):
         flash('Book not found.', 'danger')
         return redirect(url_for('books.index'))
     active_issues = Issue.get_by_book(id, status='issued')
-    return render_template('books/view.html', book=book, active_issues=active_issues)
+    
+    # Get physical copies and group by library
+    from models.book_copy import BookCopy
+    from models.library import Library
+    all_copies = BookCopy.get_by_book(id)
+    library_copies = {}
+    for copy in all_copies:
+        if copy.library_id not in library_copies:
+            lib = Library.get_by_id(copy.library_id)
+            library_copies[copy.library_id] = {
+                'library': lib,
+                'copies': []
+            }
+        library_copies[copy.library_id]['copies'].append(copy)
+        
+    return render_template('books/view.html', book=book, active_issues=active_issues, library_copies=library_copies)
 
 
 @books_bp.route('/<id>/edit', methods=['GET', 'POST'])
@@ -163,6 +230,21 @@ def edit(id):
                 flash(e, 'danger')
             return render_template('books/edit.html', book=book,
                                    categories=CATEGORIES, languages=LANGUAGES)
+
+        cover_file = request.files.get('cover_image_file')
+        if cover_file and cover_file.filename:
+            cover_file.seek(0, os.SEEK_END)
+            size = cover_file.tell()
+            cover_file.seek(0)
+            if size > 500 * 1024:
+                flash('Cover image size exceeds 500KB limit.', 'danger')
+                return render_template('books/edit.html', book=book, categories=CATEGORIES, languages=LANGUAGES)
+            import cloudinary.uploader
+            try:
+                res = cloudinary.uploader.upload(cover_file)
+                cover_image = res.get('secure_url', cover_image)
+            except Exception as e:
+                flash(f"Cover image upload failed: {e}", 'warning')
 
         diff = total_copies - book.total_copies
         book.update(

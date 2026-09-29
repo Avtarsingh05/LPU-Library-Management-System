@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}Edit Library{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="d-flex align-center justify-between">
+    <div>
+      <h1 class="page-title">Edit Library: {{ library.name }}</h1>
+      <p class="page-subtitle">Update library details.</p>
+    </div>
+    <a href="{{ url_for('libraries.index') }}" class="btn btn-outline-secondary">Back</a>
+  </div>
+</div>
+
+<div class="card" style="max-width: 600px; margin: 0 auto;">
+  <div class="card-body">
+    <form method="POST">
+      <div class="form-group">
+        <label class="form-label" for="name">Library Name *</label>
+        <input type="text" id="name" name="name" class="form-control" required value="{{ library.name }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="code">Library Code *</label>
+        <input type="text" id="code" name="code" class="form-control" required value="{{ library.code }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="description">Description</label>
+        <textarea id="description" name="description" class="form-control" rows="3">{{ library.description }}</textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="address">Address</label>
+        <textarea id="address" name="address" class="form-control" rows="2">{{ library.address }}</textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="status">Status</label>
+        <select id="status" name="status" class="form-control">
+          <option value="active" {% if library.status == 'active' %}selected{% endif %}>Active</option>
+          <option value="inactive" {% if library.status == 'inactive' %}selected{% endif %}>Inactive</option>
+        </select>
+      </div>
+      
+      <div class="mt-4 text-end">
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

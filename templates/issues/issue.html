@@ -22,6 +22,16 @@
         <input type="hidden" name="book_id" id="book_id">
 
         <div class="form-group">
+          <label class="form-label">Select Library <span class="required">*</span></label>
+          <select name="library_id" id="library_id" class="form-control" required onchange="resetBookSelection()">
+            <option value="" disabled selected>Select a Library...</option>
+            {% for lib in assigned_libraries %}
+              <option value="{{ lib.id }}">{{ lib.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
           <label class="form-label">Select Member <span class="required">*</span></label>
           <div class="autocomplete-wrapper">
             <input type="text" class="form-control" id="memberSearch" placeholder="Search by name, email, or member ID..." autocomplete="off">
@@ -33,13 +43,23 @@
         <div class="form-group">
           <label class="form-label">Select Book <span class="required">*</span></label>
           <div class="autocomplete-wrapper">
-            <input type="text" class="form-control" id="bookSearch" placeholder="Search by title, author, or ISBN..." autocomplete="off">
+            <input type="text" class="form-control" id="bookSearch" placeholder="First select a library, then search for a book..." autocomplete="off" disabled>
             <div class="autocomplete-results" id="bookResults"></div>
           </div>
-          <span class="form-text">Only books with available copies are shown</span>
         </div>
 
         <div id="bookAvailability"></div>
+
+        <div class="form-group">
+          <label class="form-label">Select Physical Copy <span class="required">*</span></label>
+          <div style="display:flex; gap:0.5rem;">
+            <select name="copy_id" id="copy_id" class="form-control" required disabled>
+              <option value="">Select a Book first...</option>
+            </select>
+            <button type="button" class="btn btn-outline-secondary" onclick="alert('QR Scanner would populate physical copy here (Mock)')" title="Scan QR Code"><i class="bi bi-qr-code-scan"></i></button>
+          </div>
+          <span class="form-text">Choose the specific physical copy you are handing to the member.</span>
+        </div>
 
         <div class="form-grid-2">
           <div class="form-group">
@@ -54,7 +74,7 @@
 
         <div style="display:flex; gap:0.75rem; justify-content:flex-end; margin-top:1rem;">
           <a href="{{ url_for('issues.index') }}" class="btn btn-outline-secondary">Cancel</a>
-          <button type="submit" class="btn btn-primary" id="issueBtn">
+          <button type="submit" class="btn btn-primary" id="issueBtn" disabled>
             <i class="bi bi-box-arrow-up-right"></i> Issue Book
           </button>
         </div>
@@ -104,6 +124,85 @@ if (issueDate.value) {
   var d = new Date(issueDate.value);
   d.setDate(d.getDate() + days);
   dueDate.value = d.toISOString().split('T')[0];
+}
+
+var librarySelect = document.getElementById('library_id');
+var bookSearch = document.getElementById('bookSearch');
+var copySelect = document.getElementById('copy_id');
+var issueBtn = document.getElementById('issueBtn');
+
+function resetBookSelection() {
+  bookSearch.value = '';
+  document.getElementById('book_id').value = '';
+  bookSearch.disabled = !librarySelect.value;
+  copySelect.innerHTML = '<option value="">Select a Book first...</option>';
+  copySelect.disabled = true;
+  issueBtn.disabled = true;
+}
+
+// Override bookSearch behavior defined in app.js
+var localBookResults = document.getElementById('bookResults');
+var bookDebounce;
+
+bookSearch.addEventListener('input', function(e) {
+  e.stopPropagation(); // stop app.js from handling it if possible
+  clearTimeout(bookDebounce);
+  var q = bookSearch.value.trim();
+  var libId = librarySelect.value;
+  
+  if (!libId) return;
+  if (q.length < 2) { localBookResults.innerHTML = ''; localBookResults.style.display = 'none'; return; }
+  
+  bookDebounce = setTimeout(function() {
+    // We fetch ALL books, but the backend search could be filtered by library in the future.
+    // For now, any book might exist in the library, but we'll fetch its physical copies when clicked.
+    fetch('/books/search?q=' + encodeURIComponent(q) + '&library_id=' + encodeURIComponent(libId))
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data.length) {
+          localBookResults.innerHTML = '<div class="autocomplete-item text-muted">No books found matching this library</div>';
+        } else {
+          localBookResults.innerHTML = data.map(function(b) {
+            return '<div class="autocomplete-item" data-id="' + b.id + '" data-name="' + b.title + '">' +
+              '<strong>' + b.title + '</strong>' +
+              '<small class="d-block text-muted">by ' + b.author + ' | ISBN: ' + b.isbn + '</small>' +
+              '</div>';
+          }).join('');
+        }
+        localBookResults.style.display = 'block';
+
+        localBookResults.querySelectorAll('.autocomplete-item[data-id]').forEach(function(item) {
+          item.addEventListener('click', function() {
+            bookSearch.value = item.dataset.name;
+            document.getElementById('book_id').value = item.dataset.id;
+            localBookResults.style.display = 'none';
+            loadCopies(item.dataset.id, libId);
+          });
+        });
+      });
+  }, 300);
+});
+
+function loadCopies(bookId, libId) {
+  copySelect.innerHTML = '<option value="">Loading copies...</option>';
+  copySelect.disabled = true;
+  
+  fetch('/libraries/' + encodeURIComponent(libId) + '/books/' + encodeURIComponent(bookId) + '/copies')
+    .then(r => r.json())
+    .then(copies => {
+      if (!copies.length) {
+        copySelect.innerHTML = '<option value="">No available copies in this library</option>';
+        issueBtn.disabled = true;
+      } else {
+        copySelect.innerHTML = '<option value="" disabled selected>Select specific physical copy</option>' + 
+          copies.map(c => '<option value="' + c.id + '">' + c.id + ' (Condition: ' + c.condition + ')</option>').join('');
+        copySelect.disabled = false;
+        
+        copySelect.addEventListener('change', function() {
+          issueBtn.disabled = !copySelect.value;
+        });
+      }
+    });
 }
 </script>
 {% endblock %}

@@ -7,6 +7,22 @@
   <p class="page-subtitle">Your library account overview</p>
 </div>
 
+{% if member and member.verification_status != 'approved' %}
+<div class="alert {% if member.verification_status == 'pending' %}alert-warning{% else %}alert-danger{% endif %}" style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 1rem;">
+  <i class="bi {% if member.verification_status == 'pending' %}bi-hourglass-split{% else %}bi-x-circle{% endif %}" style="font-size: 1.5rem;"></i>
+  <div>
+    <strong>{% if member.verification_status == 'pending' %}Account Pending Verification{% else %}ID Verification Rejected{% endif %}</strong>
+    <div style="font-size: 0.9rem;">
+      {% if member.verification_status == 'pending' %}
+        Your ID card is currently being reviewed by an administrator. You will not be able to borrow books or reserve items until approved.
+      {% else %}
+        Your uploaded ID was rejected by the admin. Reason: <em>{{ member.rejection_reason }}</em>. Please <a href="{{ url_for('members.profile') }}">update your profile</a> with a valid ID.
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <!-- Member Stats -->
 <div class="stats-grid" style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));">
   <div class="stat-card">
@@ -60,7 +76,11 @@
               <tr>
                 <td>
                   <div class="book-thumb">
+                    {% if issue.book.cover_image %}
+                    <img src="{{ issue.book.cover_image }}" alt="Cover" class="book-cover" style="object-fit:cover;">
+                    {% else %}
                     <div class="book-cover"><i class="bi bi-book"></i></div>
+                    {% endif %}
                     <div>
                       <div class="book-thumb-title">{{ issue.book.title | truncate(35) }}</div>
                       <div class="book-thumb-author">{{ issue.book.author }}</div>
@@ -168,17 +188,21 @@
       </div>
     </div>
 
-    <!-- Popular Books -->
+    <!-- Smart Recommendations -->
     <div class="card">
       <div class="card-header">
-        <span class="card-title"><i class="bi bi-star"></i> Available Books</span>
+        <span class="card-title"><i class="bi bi-stars" style="color:#f39c12"></i> Smart Recommendations</span>
         <a href="{{ url_for('books.index') }}" class="btn btn-sm btn-outline-secondary">Browse All</a>
       </div>
       <div class="card-body">
         <div class="book-cards-grid">
           {% for book in popular_books[:6] %}
           <a href="{{ url_for('books.view', id=book.id) }}" class="book-card" style="text-decoration:none;">
+            {% if book.cover_image %}
+            <img src="{{ book.cover_image }}" class="book-card-cover" style="object-fit:cover; padding:0; border:none;">
+            {% else %}
             <div class="book-card-cover"><i class="bi bi-book"></i></div>
+            {% endif %}
             <div class="book-card-body">
               <div class="book-card-title">{{ book.title | truncate(30) }}</div>
               <div class="book-card-author">{{ book.author | truncate(20) }}</div>

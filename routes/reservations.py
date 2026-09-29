@@ -35,6 +35,10 @@ def create():
     if not member:
         flash('Member profile not found.', 'danger')
         return redirect(url_for('books.view', id=book_id))
+        
+    if member.verification_status != 'approved':
+        flash('Your account must be verified by an admin before you can reserve books.', 'warning')
+        return redirect(url_for('books.view', id=book_id))
 
     if Reservation.get_active_for_member_book(book_id, member.id):
         flash('You already have an active reservation for this book.', 'warning')

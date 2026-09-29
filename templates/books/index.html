@@ -3,7 +3,7 @@
 
 {% block content %}
 <div class="page-header">
-  <div class="d-flex align-center justify-between">
+  <div class="d-flex align-center justify-between" style="flex-wrap: wrap; gap: 1rem;">
     <div>
       <div class="breadcrumb"><a href="{{ url_for('dashboard.index') }}">Home</a> <i class="bi bi-chevron-right"></i> Books</div>
       <h1 class="page-title">Book Catalog</h1>
@@ -72,17 +72,19 @@
             <th>Available</th>
             <th>Shelf</th>
             <th>Status</th>
-            {% if current_user and current_user.is_admin() %}
             <th>Actions</th>
-            {% endif %}
           </tr>
         </thead>
         <tbody>
           {% for book in books.items %}
           <tr>
-            <td>
+            <td data-label="Book">
               <div class="book-thumb">
+                {% if book.cover_image %}
+                <img src="{{ book.cover_image }}" alt="{{ book.title }}" class="book-cover" style="object-fit:cover;">
+                {% else %}
                 <div class="book-cover"><i class="bi bi-book"></i></div>
+                {% endif %}
                 <div>
                   <div class="book-thumb-title">
                     <a href="{{ url_for('books.view', id=book.id) }}" style="color:inherit;">{{ book.title | truncate(40) }}</a>
@@ -91,37 +93,48 @@
                 </div>
               </div>
             </td>
-            <td><code style="font-size:0.78rem;">{{ book.isbn }}</code></td>
-            <td><span class="badge badge-info">{{ book.category }}</span></td>
-            <td>{{ book.total_copies }}</td>
-            <td>
-              <div>{{ book.available_copies }}/{{ book.total_copies }}</div>
-              <div class="availability-bar">
-                {% set pct = (book.available_copies / book.total_copies * 100) if book.total_copies > 0 else 0 %}
-                <div class="availability-fill {% if pct == 0 %}none{% elif pct < 30 %}low{% endif %}" style="width:{{ pct }}%;"></div>
+            <td data-label="ISBN"><code style="font-size:0.78rem;">{{ book.isbn }}</code></td>
+            <td data-label="Category"><span class="badge badge-info">{{ book.category }}</span></td>
+            <td data-label="Copies">{{ book.total_copies }}</td>
+            <td data-label="Available">
+              <div style="width: 100%; max-width: 120px; text-align: right;">
+                <div>{{ book.available_copies }}/{{ book.total_copies }}</div>
+                <div class="availability-bar" style="margin-top: 0.25rem;">
+                  {% set pct = (book.available_copies / book.total_copies * 100) if book.total_copies > 0 else 0 %}
+                  <div class="availability-fill {% if pct == 0 %}none{% elif pct < 30 %}low{% endif %}" style="width:{{ pct }}%;"></div>
+                </div>
               </div>
             </td>
-            <td><span class="text-muted" style="font-size:0.82rem;">{{ book.shelf_location or '—' }}</span></td>
-            <td>
+            <td data-label="Shelf"><span class="text-muted" style="font-size:0.82rem;">{{ book.shelf_location or '—' }}</span></td>
+            <td data-label="Status">
               {% if book.available_copies > 0 %}
                 <span class="badge badge-success"><i class="bi bi-check-circle"></i> Available</span>
               {% else %}
                 <span class="badge badge-danger"><i class="bi bi-x-circle"></i> Issued Out</span>
               {% endif %}
             </td>
-            {% if current_user and current_user.is_admin() %}
-            <td>
+            <td data-label="Actions">
               <div class="action-btns">
                 <a href="{{ url_for('books.view', id=book.id) }}" class="btn-action view" title="View Details"><i class="bi bi-eye"></i></a>
+                {% if current_user and current_user.is_admin() %}
                 <a href="{{ url_for('books.edit', id=book.id) }}" class="btn-action edit" title="Edit Book"><i class="bi bi-pencil"></i></a>
                 <button class="btn-action delete" title="Delete Book"
                   data-delete-url="{{ url_for('books.delete', id=book.id) }}"
                   data-item-name="{{ book.title }}">
                   <i class="bi bi-trash3"></i>
                 </button>
+                {% else %}
+                <form method="POST" action="{{ url_for('reservations.create') }}" style="display:inline; margin:0; padding:0;">
+                  <input type="hidden" name="book_id" value="{{ book.id }}">
+                  <button type="submit" class="btn-action" title="{% if book.available_copies > 0 %}Cannot reserve available books{% else %}Reserve Book{% endif %}" 
+                          style="background:none; border:none; padding:4px 8px; border-radius:4px; {% if book.available_copies > 0 %}opacity:0.5; cursor:not-allowed; color:#95a5a6;{% else %}color:var(--primary); cursor:pointer;{% endif %}"
+                          {% if book.available_copies > 0 %}disabled{% endif %}>
+                    <i class="bi bi-bookmark"></i>
+                  </button>
+                </form>
+                {% endif %}
               </div>
             </td>
-            {% endif %}
           </tr>
           {% endfor %}
         </tbody>

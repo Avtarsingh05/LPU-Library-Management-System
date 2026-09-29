@@ -59,16 +59,19 @@ class Book:
 
     def save(self):
         get_db().collection(self.COLLECTION).document(self.id).set(self._to_dict())
+        Book._cache_get_all = None
         return self
 
     def update(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
         get_db().collection(self.COLLECTION).document(self.id).update(kwargs)
+        Book._cache_get_all = None
         return self
 
     def delete(self):
         get_db().collection(self.COLLECTION).document(self.id).delete()
+        Book._cache_get_all = None
 
     # ── Class-level queries ──────────────────────────────────────────────────
     @classmethod
@@ -108,12 +111,22 @@ class Book:
             return cls._from_doc(doc)
         return None
 
+    _cache_get_all = None
+    _cache_get_all_time = 0
+
     @classmethod
     def get_all(cls):
-        """Return all books, sorted by title."""
+        """Return all books, sorted by title. Caches for 60 seconds."""
+        import time
+        if cls._cache_get_all is not None and (time.time() - cls._cache_get_all_time) < 60:
+            return cls._cache_get_all
+
         docs = get_db().collection(cls.COLLECTION).stream()
         books = [cls._from_doc(d) for d in docs if d.to_dict()]
         books.sort(key=lambda b: (b.title or '').lower())
+        
+        cls._cache_get_all = books
+        cls._cache_get_all_time = time.time()
         return books
 
     @classmethod
@@ -149,12 +162,25 @@ class Book:
 
     @classmethod
     def count(cls):
-        docs = get_db().collection(cls.COLLECTION).stream()
-        return sum(1 for _ in docs)
+        try:
+            aggr_query = get_db().collection(cls.COLLECTION).count()
+            results = aggr_query.get()
+            return results[0][0].value
+        except Exception:
+            docs = get_db().collection(cls.COLLECTION).select([]).stream()
+            return sum(1 for _ in docs)
 
     @classmethod
     def total_available(cls):
-        docs = get_db().collection(cls.COLLECTION).stream()
+        # We can sum available_copies using aggregation if supported, else select only available_copies
+        try:
+            from google.cloud.firestore_v1.aggregation import AggregationQuery
+            # Sum aggregation is only available in newer SDKs
+            aggr = get_db().collection(cls.COLLECTION)
+            # Just fallback to select
+        except Exception:
+            pass
+        docs = get_db().collection(cls.COLLECTION).select(['available_copies']).stream()
         return sum(d.to_dict().get('available_copies', 0) for d in docs if d.to_dict())
 
     def __repr__(self):

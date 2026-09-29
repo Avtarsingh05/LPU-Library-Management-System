@@ -16,7 +16,20 @@
     <div class="card mb-2">
       <div class="card-body">
         <div class="profile-header">
-          <div class="profile-avatar">{{ member.name[0] | upper }}</div>
+          <div class="profile-avatar" style="position:relative; overflow:hidden; border:none; padding:0; background:transparent;">
+            {% if member_user and member_user.profile_pic %}
+              <img src="{{ member_user.profile_pic }}" style="width:100%; height:100%; object-fit:cover;">
+            {% else %}
+              <div style="width:100%; height:100%; background:var(--primary); color:white; display:flex; align-items:center; justify-content:center;">{{ member.name[0] | upper }}</div>
+            {% endif %}
+            
+            {% if current_user and current_user.id == member.user_id %}
+            <form action="{{ url_for('members.upload_pic', id=member.id) }}" method="POST" enctype="multipart/form-data" id="picForm" style="position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.6); text-align:center; padding:2px 0;">
+              <label for="profile_pic" style="cursor:pointer; color:white; font-size:0.75rem; margin:0;"><i class="bi bi-camera"></i> Edit</label>
+              <input type="file" name="profile_pic" id="profile_pic" style="display:none;" accept="image/*" onchange="document.getElementById('picForm').submit()">
+            </form>
+            {% endif %}
+          </div>
           <div>
             <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
               <h3 style="margin:0;">{{ member.name }}</h3>
@@ -27,15 +40,27 @@
               {% else %}
                 <span class="badge badge-danger">Suspended</span>
               {% endif %}
+              
+              {% if member_user and member_user.role != 'member' %}
+                <span class="badge badge-warning">{{ member_user.role | capitalize | replace('_', ' ') }}</span>
+              {% endif %}
             </div>
-            <p style="margin:0.25rem 0 0.75rem;color:#6c757d;">{{ member.member_id }} &bull; {{ member.email }}</p>
+            <p style="margin:0.25rem 0 0.75rem;color:#6c757d; display:flex; align-items:center; gap:0.5rem;">
+              <span style="font-family:monospace;">{{ member.member_id }}</span>
+              {% if current_user and current_user.role == 'super_admin' %}
+              <button type="button" class="btn btn-sm btn-link" style="padding:0; line-height:1;" title="Edit UID" onclick="document.getElementById('editUidModal').classList.add('show')">
+                <i class="bi bi-pencil-square"></i>
+              </button>
+              {% endif %}
+              &bull; {{ member.email }}
+            </p>
             {% if current_user and current_user.is_admin() %}
-            <div style="display:flex; gap:0.5rem;">
+            <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
               <a href="{{ url_for('members.edit', id=member.id) }}" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-pencil"></i> Edit
               </a>
               <form method="POST" action="{{ url_for('members.toggle_status', id=member.id) }}" style="display:inline;">
-                <button type="submit" class="btn btn-sm {% if member.status == 'active' %}btn-outline-secondary{% else %}btn-outline-secondary{% endif %}" style="color:{% if member.status == 'active' %}#e74c3c{% else %}#27ae60{% endif %};">
+                <button type="submit" class="btn btn-sm btn-outline-secondary" style="color:{% if member.status == 'active' %}#e74c3c{% else %}#27ae60{% endif %};">
                   <i class="bi bi-{% if member.status == 'active' %}person-slash{% else %}person-check{% endif %}"></i>
                   {% if member.status == 'active' %}Disable{% else %}Enable{% endif %}
                 </button>
@@ -43,10 +68,102 @@
               <a href="{{ url_for('issues.issue_book') }}" class="btn btn-sm btn-primary">
                 <i class="bi bi-box-arrow-up-right"></i> Issue Book
               </a>
+              <button type="button" class="btn btn-sm btn-outline-primary" onclick="document.getElementById('notifyModal').classList.add('show')">
+                <i class="bi bi-bell"></i> Send Notification
+              </button>
+              
+              {% if member_user and current_user.role in ['admin', 'super_admin'] %}
+              <form method="POST" action="{{ url_for('members.promote', id=member.id) }}" style="display:flex; gap:0.25rem; align-items:center; margin-left: 0.5rem;">
+                <select name="role" class="form-control form-control-sm" style="width: auto; padding: 0.25rem 0.5rem;">
+                  <option value="member" {% if member_user.role == 'member' %}selected{% endif %}>Member</option>
+                  <option value="librarian" {% if member_user.role == 'librarian' %}selected{% endif %}>Librarian</option>
+                  <option value="admin" {% if member_user.role == 'admin' %}selected{% endif %}>Admin</option>
+                  {% if current_user.role == 'super_admin' %}
+                  <option value="super_admin" {% if member_user.role == 'super_admin' %}selected{% endif %}>Super Admin</option>
+                  {% endif %}
+                </select>
+                <button type="submit" class="btn btn-sm btn-outline-primary" title="Update Role"><i class="bi bi-check2"></i> Update</button>
+              </form>
+              {% endif %}
             </div>
             {% endif %}
+            <div style="margin-top:0.5rem;">
+              <button type="button" class="btn btn-sm btn-outline-primary" onclick="document.getElementById('libraryCardModal').classList.add('show')">
+                <i class="bi bi-qr-code"></i> View Digital Card
+              </button>
+            </div>
           </div>
         </div>
+
+        <!-- Digital Library Card Modal -->
+        <div class="modal-overlay" id="libraryCardModal">
+          <div class="modal-box" style="text-align:center; max-width: 320px; padding: 2rem;">
+            <h3 style="margin-top:0;">{{ library_name }}</h3>
+            <p style="color:#6c757d; font-size:0.9rem; margin-bottom: 1.5rem;">Digital Library Card</p>
+            <div style="background:#f8f9fa; padding:1.5rem; border-radius:12px; margin-bottom:1.5rem;">
+              <!-- Mock QR Code visual -->
+              <div style="width:150px; height:150px; margin:0 auto; background:url('https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ member.member_id }}') center/cover;"></div>
+            </div>
+            <h4 style="margin:0 0 0.5rem 0;">{{ member.name }}</h4>
+            <p style="margin:0; font-family:monospace; font-size:1.1rem; letter-spacing:1px;">{{ member.member_id }}</p>
+            <div style="margin-top: 1.5rem;">
+              <button class="btn btn-outline-secondary btn-sm" data-modal-close>Close</button>
+              <button class="btn btn-primary btn-sm" onclick="window.print()"><i class="bi bi-printer"></i> Print</button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Edit UID Modal (Super Admin Only) -->
+        {% if current_user and current_user.role == 'super_admin' %}
+        <div class="modal-overlay" id="editUidModal">
+          <div class="modal-box" style="max-width: 400px; padding: 1.5rem;">
+            <h4 style="margin-top:0; margin-bottom: 1rem;"><i class="bi bi-pencil-square text-primary"></i> Change User UID</h4>
+            <form method="POST" action="{{ url_for('members.edit_uid', id=member.id) }}">
+              <div class="form-group">
+                <label class="form-label">New Unique ID for {{ member.name }}</label>
+                <input type="text" name="new_uid" class="form-control" value="{{ member.member_id }}" required>
+                <span class="form-text">Warning: Ensure the new UID matches length rules (5 digits for staff, 6 digits for members) or your institution's formatting standard.</span>
+              </div>
+              <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top: 1.5rem;">
+                <button type="button" class="btn btn-outline-secondary" data-modal-close>Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+              </div>
+            </form>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Notify Modal (Admin) -->
+        {% if current_user and current_user.is_admin() %}
+        <div class="modal-overlay" id="notifyModal">
+          <div class="modal-box" style="max-width: 450px; padding: 1.5rem;">
+            <h4 style="margin-top:0; margin-bottom: 1rem;"><i class="bi bi-bell text-primary"></i> Send Notification</h4>
+            <form method="POST" action="{{ url_for('members.notify', id=member.id) }}">
+              <div class="form-group">
+                <label class="form-label">Notification Title</label>
+                <input type="text" name="title" class="form-control" placeholder="e.g. Please Return Overdue Book" required>
+              </div>
+              <div class="form-group" style="margin-top: 1rem;">
+                <label class="form-label">Message</label>
+                <textarea name="message" class="form-control" rows="3" placeholder="Write your message here..." required></textarea>
+              </div>
+              <div class="form-group" style="margin-top: 1rem;">
+                <label class="form-label">Notification Type</label>
+                <select name="type" class="form-control">
+                  <option value="info">Info (Blue)</option>
+                  <option value="warning">Warning (Yellow)</option>
+                  <option value="danger">Urgent/Danger (Red)</option>
+                  <option value="success">Success (Green)</option>
+                </select>
+              </div>
+              <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top: 1.5rem;">
+                <button type="button" class="btn btn-outline-secondary" data-modal-close>Cancel</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-send"></i> Send</button>
+              </div>
+            </form>
+          </div>
+        </div>
+        {% endif %}
 
         <!-- Stats -->
         <div class="profile-stats">
@@ -97,6 +214,43 @@
         </div>
       </div>
     </div>
+
+    <!-- Verification Card (Admins Only) -->
+    {% if current_user and current_user.is_admin() and member.verification_status != 'approved' %}
+    <div class="card mb-2" style="border: 2px solid {% if member.verification_status == 'pending' %}#f39c12{% else %}#e74c3c{% endif %};">
+      <div class="card-header" style="background: {% if member.verification_status == 'pending' %}#fdf0d5{% else %}#fdedec{% endif %}; border-bottom: none;">
+        <span class="card-title">
+          <i class="bi bi-person-badge"></i> ID Card Verification 
+          <span class="badge {% if member.verification_status == 'pending' %}badge-warning{% else %}badge-danger{% endif %}">{{ member.verification_status | upper }}</span>
+        </span>
+      </div>
+      <div class="card-body">
+        {% if member.id_card_url %}
+        <div style="margin-bottom: 1rem;">
+          <a href="{{ member.id_card_url }}" target="_blank">
+            <img src="{{ member.id_card_url }}" alt="ID Card" style="max-height: 200px; border-radius: 8px; border: 1px solid #ddd;">
+          </a>
+        </div>
+        {% else %}
+        <p class="text-muted">No ID card uploaded yet.</p>
+        {% endif %}
+
+        {% if member.verification_status == 'pending' and member.id_card_url %}
+        <form method="POST" action="{{ url_for('members.verify', id=member.id) }}" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <input type="hidden" name="action" value="approve">
+          <button type="submit" class="btn btn-success"><i class="bi bi-check-circle"></i> Approve & Generate ID</button>
+          
+          <div class="input-group" style="width: auto; flex: 1; min-width: 200px;">
+            <input type="text" name="rejection_reason" class="form-control" placeholder="Reason (if rejecting)">
+            <button type="submit" class="btn btn-danger" name="action" value="reject"><i class="bi bi-x-circle"></i> Reject</button>
+          </div>
+        </form>
+        {% elif member.verification_status == 'rejected' %}
+        <p class="text-danger mb-0"><strong>Rejection Reason:</strong> {{ member.rejection_reason }}</p>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
 
     <!-- Currently Issued -->
     <div class="card mb-2">

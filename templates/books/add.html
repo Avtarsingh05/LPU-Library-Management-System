@@ -15,7 +15,7 @@
     <span class="card-title"><i class="bi bi-plus-circle"></i> Book Information</span>
   </div>
   <div class="card-body">
-    <form method="POST" action="{{ url_for('books.add') }}" data-validate>
+    <form method="POST" action="{{ url_for('books.add') }}" enctype="multipart/form-data" data-validate>
       <div class="form-grid-2">
         <div class="form-group">
           <label class="form-label">Book Title <span class="required">*</span></label>
@@ -65,13 +65,31 @@
       </div>
       <div class="form-grid-2">
         <div class="form-group">
+          <label class="form-label">Initial Library Location <span class="required">*</span></label>
+          <select class="form-select" name="library_id" required>
+            <option value="" disabled {% if not form_data.get('library_id') %}selected{% endif %}>Select physical library</option>
+            <option value="all" {% if form_data.get('library_id') == 'all' %}selected{% endif %}>All Libraries (Distribute to all)</option>
+            {% for lib in libraries %}
+            <option value="{{ lib.id }}" {% if form_data.get('library_id') == lib.id %}selected{% endif %}>{{ lib.name }}</option>
+            {% endfor %}
+          </select>
+          <span class="form-text">Physical barcodes will be auto-generated.</span>
+        </div>
+        <div class="form-group">
           <label class="form-label">Shelf Location</label>
           <input type="text" class="form-control" name="shelf_location" value="{{ form_data.get('shelf_location', '') }}" placeholder="e.g. A1-23">
         </div>
+      </div>
+      <div class="form-grid-2">
         <div class="form-group">
-          <label class="form-label">Cover Image URL</label>
+          <label class="form-label">Cover Image Upload</label>
+          <input type="file" class="form-control" name="cover_image_file" accept="image/*">
+          <span class="form-text">Optional: Upload a book cover image</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cover Image URL (Fallback)</label>
           <input type="url" class="form-control" name="cover_image" value="{{ form_data.get('cover_image', '') }}" placeholder="https://...">
-          <span class="form-text">Optional: Enter a URL to a book cover image</span>
+          <span class="form-text">Optional: Enter a URL if not uploading a file</span>
         </div>
       </div>
       <div class="form-group">

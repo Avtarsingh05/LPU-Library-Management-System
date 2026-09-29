@@ -29,6 +29,7 @@ class Issue:
     def __init__(self, id=None, book_id='', member_id='', issued_by='',
                  issue_date=None, due_date=None, return_date=None,
                  status='issued', fine_amount=0.0,
+                 copy_id='', library_id='',
                  # eager-loaded related objects (set by route helpers)
                  book=None, member=None):
         self.id = id or str(uuid.uuid4())
@@ -40,6 +41,8 @@ class Issue:
         self.return_date = _to_date(return_date)
         self.status = status
         self.fine_amount = fine_amount or 0.0
+        self.copy_id = copy_id
+        self.library_id = library_id
         # Related objects (loaded on demand via property)
         self._book = book
         self._member = member
@@ -91,23 +94,26 @@ class Issue:
             'return_date': self.return_date.isoformat() if self.return_date else None,
             'status': self.status,
             'fine_amount': self.fine_amount,
+            'copy_id': self.copy_id,
+            'library_id': self.library_id,
             'created_at': datetime.utcnow(),
         }
 
     def save(self):
         get_db().collection(self.COLLECTION).document(self.id).set(self._to_dict())
+        Issue._cache_get_all = None
         return self
 
     def update(self, **kwargs):
         update_data = {}
         for k, v in kwargs.items():
             setattr(self, k, v)
-            # Serialize dates
             if isinstance(v, date):
                 update_data[k] = v.isoformat()
             else:
                 update_data[k] = v
         get_db().collection(self.COLLECTION).document(self.id).update(update_data)
+        Issue._cache_get_all = None
         return self
 
     # ── Class-level queries ──────────────────────────────────────────────────
@@ -126,6 +132,8 @@ class Issue:
             return_date=d.get('return_date'),
             status=d.get('status', 'issued'),
             fine_amount=d.get('fine_amount', 0.0),
+            copy_id=d.get('copy_id', ''),
+            library_id=d.get('library_id', ''),
         )
 
     @classmethod
@@ -135,15 +143,26 @@ class Issue:
             return cls._from_doc(doc)
         return None
 
+    _cache_get_all = None
+    _cache_get_all_time = 0
+
     @classmethod
     def get_all(cls, status=None):
+        import time
+        if status is None and cls._cache_get_all is not None and (time.time() - cls._cache_get_all_time) < 30:
+            return cls._cache_get_all
+
         q = get_db().collection(cls.COLLECTION)
         if status:
             q = q.where('status', '==', status)
         docs = q.stream()
         issues = [cls._from_doc(d) for d in docs if d.to_dict()]
-        # Sort newest first by created_at (stored as timestamp)
         issues.sort(key=lambda i: i.issue_date or date.min, reverse=True)
+        
+        if status is None:
+            cls._cache_get_all = issues
+            cls._cache_get_all_time = time.time()
+            
         return issues
 
     @classmethod
@@ -191,7 +210,9 @@ class Issue:
             m = i.member
             if (b and q in b.title.lower()) or \
                (m and q in m.name.lower()) or \
-               (m and q in m.member_id.lower()):
+               (m and q in m.member_id.lower()) or \
+               (q in i.id.lower()) or \
+               (q in i.copy_id.lower()):
                 result.append(i)
         return result
 
@@ -240,12 +261,14 @@ class Reservation:
 
     def save(self):
         get_db().collection(self.COLLECTION).document(self.id).set(self._to_dict())
+        Reservation._cache_get_all = {}
         return self
 
     def update(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
         get_db().collection(self.COLLECTION).document(self.id).update(kwargs)
+        Reservation._cache_get_all = {}
         return self
 
     @classmethod
@@ -268,8 +291,16 @@ class Reservation:
             return cls._from_doc(doc)
         return None
 
+    _cache_get_all = {}
+    _cache_get_all_time = {}
+
     @classmethod
     def get_all(cls, status=None):
+        import time
+        cache_key = status or 'all'
+        if cache_key in cls._cache_get_all and (time.time() - cls._cache_get_all_time.get(cache_key, 0)) < 30:
+            return cls._cache_get_all[cache_key]
+
         q = get_db().collection(cls.COLLECTION)
         if status:
             q = q.where('status', '==', status)
@@ -278,6 +309,10 @@ class Reservation:
         reservations.sort(
             key=lambda r: r.reservation_date or datetime.min, reverse=True
         )
+        
+        cls._cache_get_all[cache_key] = reservations
+        cls._cache_get_all_time[cache_key] = time.time()
+        
         return reservations
 
     @classmethod

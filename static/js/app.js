@@ -3,7 +3,7 @@
  * Main Application JavaScript
  */
 
-(function() {
+function initApp() {
   'use strict';
 
   // =============================================
@@ -42,18 +42,18 @@
         alert.style.opacity = '0';
         alert.style.transform = 'translateY(-8px)';
         alert.style.transition = 'all 0.3s ease';
-        setTimeout(function() { alert.remove(); }, 300);
+        setTimeoutfunction initApp() { alert.remove(); }, 300);
       }
     });
   });
 
   // Auto-dismiss flash messages after 5 seconds
-  setTimeout(function() {
+  setTimeoutfunction initApp() {
     document.querySelectorAll('.alert').forEach(function(alert) {
       alert.style.opacity = '0';
       alert.style.transform = 'translateY(-8px)';
       alert.style.transition = 'all 0.3s ease';
-      setTimeout(function() { if (alert.parentNode) alert.remove(); }, 300);
+      setTimeoutfunction initApp() { if (alert.parentNode) alert.remove(); }, 300);
     });
   }, 5000);
 
@@ -101,15 +101,48 @@
   if (notifBtn && notifDropdown) {
     notifBtn.addEventListener('click', function(e) {
       e.stopPropagation();
+      var isShowing = notifDropdown.classList.contains('show');
+      if (userDropdown) userDropdown.classList.remove('show');
       notifDropdown.classList.toggle('show');
-    });
-
-    document.addEventListener('click', function(e) {
-      if (!notifBtn.contains(e.target) && !notifDropdown.contains(e.target)) {
-        notifDropdown.classList.remove('show');
+      
+      if (!isShowing) {
+        var dot = notifBtn.querySelector('.notification-dot');
+        if (dot) {
+          fetch('/notifications/read', { method: 'POST' })
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+              if (d.status === 'success') {
+                dot.style.display = 'none';
+              }
+            })
+            .catch(function(e) { console.error(e); });
+        }
       }
     });
   }
+
+  // =============================================
+  // USER PROFILE DROPDOWN
+  // =============================================
+  var userMenuBtn = document.getElementById('userMenuBtn');
+  var userDropdown = document.getElementById('userDropdown');
+
+  if (userMenuBtn && userDropdown) {
+    userMenuBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      userDropdown.classList.toggle('show');
+    });
+  }
+
+  // Close dropdowns on outside click
+  document.addEventListener('click', function(e) {
+    if (notifBtn && notifDropdown && !notifBtn.contains(e.target) && !notifDropdown.contains(e.target)) {
+      notifDropdown.classList.remove('show');
+    }
+    if (userMenuBtn && userDropdown && !userMenuBtn.contains(e.target) && !userDropdown.contains(e.target)) {
+      userDropdown.classList.remove('show');
+    }
+  });
 
   // =============================================
   // LIVE MEMBER SEARCH (Issue Book page)
@@ -126,7 +159,7 @@
       if (!memberResults) return;
       if (q.length < 2) { memberResults.innerHTML = ''; memberResults.style.display = 'none'; return; }
       
-      memberDebounce = setTimeout(function() {
+      memberDebounce = setTimeoutfunction initApp() {
         fetch('/members/search?q=' + encodeURIComponent(q))
           .then(function(r) { return r.json(); })
           .then(function(data) {
@@ -170,7 +203,7 @@
       if (!bookResults) return;
       if (q.length < 2) { bookResults.innerHTML = ''; bookResults.style.display = 'none'; return; }
       
-      bookDebounce = setTimeout(function() {
+      bookDebounce = setTimeoutfunction initApp() {
         fetch('/books/search?q=' + encodeURIComponent(q))
           .then(function(r) { return r.json(); })
           .then(function(data) {
@@ -318,4 +351,8 @@
     el.setAttribute('data-bs-toggle', 'tooltip');
   });
 
-})();
+} 
+
+document.addEventListener('turbo:load', initApp);
+document.addEventListener('DOMContentLoaded', initApp);
+

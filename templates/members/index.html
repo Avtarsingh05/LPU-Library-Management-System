@@ -9,9 +9,14 @@
       <h1 class="page-title">Members</h1>
       <p class="page-subtitle">{{ members.total }} registered members</p>
     </div>
-    <a href="{{ url_for('members.add') }}" class="btn btn-primary">
-      <i class="bi bi-person-plus"></i> Add Member
-    </a>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+      <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('notifyAllModal').classList.add('show')">
+        <i class="bi bi-bell"></i> Notify All
+      </button>
+      <a href="{{ url_for('members.add') }}" class="btn btn-primary">
+        <i class="bi bi-person-plus"></i> Add Member
+      </a>
+    </div>
   </div>
 </div>
 
@@ -89,13 +94,21 @@
               {% endif %}
             </td>
             <td>
-              {% if member.status == 'active' %}
-                <span class="badge badge-success">Active</span>
-              {% elif member.status == 'inactive' %}
-                <span class="badge badge-secondary">Inactive</span>
-              {% else %}
-                <span class="badge badge-danger">Suspended</span>
-              {% endif %}
+              <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                {% if member.status == 'active' %}
+                  <span class="badge badge-success" style="width: fit-content;">Active</span>
+                {% elif member.status == 'inactive' %}
+                  <span class="badge badge-secondary" style="width: fit-content;">Inactive</span>
+                {% else %}
+                  <span class="badge badge-danger" style="width: fit-content;">Suspended</span>
+                {% endif %}
+                
+                {% if member.verification_status == 'pending' %}
+                  <span class="badge badge-warning" style="width: fit-content;">Pending ID</span>
+                {% elif member.verification_status == 'rejected' %}
+                  <span class="badge badge-danger" style="width: fit-content;">ID Rejected</span>
+                {% endif %}
+              </div>
             </td>
             <td>
               <div class="action-btns">
@@ -145,6 +158,38 @@
     {% endif %}
   </div>
 </div>
+
+<!-- Notify All Modal -->
+{% if current_user and current_user.is_admin() %}
+<div class="modal-overlay" id="notifyAllModal">
+  <div class="modal-box" style="max-width: 450px; padding: 1.5rem;">
+    <h4 style="margin-top:0; margin-bottom: 1rem;"><i class="bi bi-bell text-primary"></i> Notify All Users</h4>
+    <form method="POST" action="{{ url_for('members.notify_all') }}">
+      <div class="form-group">
+        <label class="form-label">Notification Title</label>
+        <input type="text" name="title" class="form-control" placeholder="e.g. Library Closed Tomorrow" required>
+      </div>
+      <div class="form-group" style="margin-top: 1rem;">
+        <label class="form-label">Message</label>
+        <textarea name="message" class="form-control" rows="3" placeholder="Write your message here..." required></textarea>
+      </div>
+      <div class="form-group" style="margin-top: 1rem;">
+        <label class="form-label">Notification Type</label>
+        <select name="type" class="form-control">
+          <option value="info">Info (Blue)</option>
+          <option value="warning">Warning (Yellow)</option>
+          <option value="danger">Urgent/Danger (Red)</option>
+          <option value="success">Success (Green)</option>
+        </select>
+      </div>
+      <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top: 1.5rem;">
+        <button type="button" class="btn btn-outline-secondary" data-modal-close>Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-send"></i> Send to All</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}

@@ -76,8 +76,14 @@
               <form method="POST" action="{{ url_for('issues.return_book') }}" style="display:flex;gap:0.4rem;align-items:center;">
                 <input type="hidden" name="issue_id" value="{{ issue.id }}">
                 <input type="date" name="return_date" value="{{ today.isoformat() }}" style="width:130px;padding:0.3rem 0.5rem;border:1px solid #dee2e6;border-radius:6px;font-size:0.8rem;">
+                <select name="condition" style="padding:0.3rem 0.5rem;border:1px solid #dee2e6;border-radius:6px;font-size:0.8rem;">
+                  <option value="GOOD">Good</option>
+                  <option value="FAIR">Fair</option>
+                  <option value="DAMAGED">Damaged</option>
+                  <option value="LOST">Lost</option>
+                </select>
                 <button type="submit" class="btn btn-sm btn-success" title="Mark as Returned">
-                  <i class="bi bi-arrow-return-left"></i> Return
+                  <i class="bi bi-arrow-return-left"></i>
                 </button>
               </form>
             </td>
