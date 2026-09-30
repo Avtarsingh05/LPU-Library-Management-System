@@ -2,6 +2,138 @@
 {% block title %}Books{% endblock %}
 
 {% block content %}
+{% if current_user and current_user.role == 'member' %}
+<!-- MEMBER VIEW: MOBILE-FIRST MODERN BOOK CATALOG -->
+<div class="catalog-page-header">
+  <div class="catalog-title-group">
+    <h1>Book Catalog</h1>
+    <span class="catalog-count-badge">{{ books.total }} books in collection</span>
+  </div>
+</div>
+
+<!-- Search Bar with Form & Instant Clear -->
+<form method="GET" action="{{ url_for('books.index') }}" class="catalog-search-form" id="memberSearchForm">
+  <div class="catalog-search-box">
+    <i class="bi bi-search search-icon"></i>
+    <input type="text" name="search" id="memberCatalogSearchInput"
+           placeholder="Search books, authors, ISBN..."
+           value="{{ search }}" autocomplete="off" enterkeyhint="search">
+    {% if search %}
+    <a href="{{ url_for('books.index', category=category, availability=availability, sort=sort) }}" class="catalog-search-clear" title="Clear search">
+      <i class="bi bi-x-circle-fill"></i>
+    </a>
+    {% endif %}
+    <button type="submit" class="catalog-search-submit">Search</button>
+  </div>
+  {% if category %}<input type="hidden" name="category" value="{{ category }}">{% endif %}
+  {% if availability %}<input type="hidden" name="availability" value="{{ availability }}">{% endif %}
+  {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
+</form>
+
+<!-- Filter Chips Row (Horizontally Scrollable) -->
+<div class="catalog-filter-scroll">
+  <a href="{{ url_for('books.index', search=search, sort=sort) }}" 
+     class="catalog-chip {% if not category and not availability %}active{% endif %}">
+    <i class="bi bi-grid-fill"></i> All
+  </a>
+  <a href="{{ url_for('books.index', search=search, category=category, availability='' if availability == 'available' else 'available', sort=sort) }}" 
+     class="catalog-chip {% if availability == 'available' %}active-avail{% endif %}">
+    <i class="bi bi-check-circle-fill"></i> Available Only
+  </a>
+  {% for cat in categories %}
+  <a href="{{ url_for('books.index', search=search, category='' if category == cat else cat, availability=availability, sort=sort) }}" 
+     class="catalog-chip {% if category == cat %}active{% endif %}">
+    {{ cat }}
+  </a>
+  {% endfor %}
+</div>
+
+<!-- Meta Row: Book Count & Sort Dropdown -->
+<div class="catalog-meta-bar">
+  <span>Showing {{ books.items|length }} of {{ books.total }} books</span>
+  <div style="display:flex; align-items:center; gap:0.35rem;">
+    <i class="bi bi-arrow-down-up" style="font-size:0.75rem;"></i>
+    <select class="catalog-sort-select" onchange="window.location.href=this.value;">
+      <option value="{{ url_for('books.index', search=search, category=category, availability=availability, sort='title_asc') }}" {% if sort == 'title_asc' %}selected{% endif %}>Title A-Z</option>
+      <option value="{{ url_for('books.index', search=search, category=category, availability=availability, sort='title_desc') }}" {% if sort == 'title_desc' %}selected{% endif %}>Title Z-A</option>
+      <option value="{{ url_for('books.index', search=search, category=category, availability=availability, sort='newest') }}" {% if sort == 'newest' %}selected{% endif %}>Newest</option>
+      <option value="{{ url_for('books.index', search=search, category=category, availability=availability, sort='available_first') }}" {% if sort == 'available_first' %}selected{% endif %}>Available First</option>
+    </select>
+  </div>
+</div>
+
+<!-- Book Cards Grid -->
+{% if books.items %}
+<div class="catalog-grid">
+  {% for book in books.items %}
+  <a href="{{ url_for('books.view', id=book.id) }}" class="catalog-card">
+    <div class="catalog-cover-wrapper">
+      {% if book.cover_image %}
+      <img src="{{ book.cover_image }}" alt="{{ book.title }}" loading="lazy" 
+           onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+      <div class="catalog-cover-placeholder" style="display:none;"><i class="bi bi-book"></i></div>
+      {% else %}
+      <div class="catalog-cover-placeholder"><i class="bi bi-book"></i></div>
+      {% endif %}
+      {% if book.available_copies > 0 %}
+      <span class="catalog-badge avail"><i class="bi bi-check2"></i> {{ book.available_copies }} left</span>
+      {% else %}
+      <span class="catalog-badge unavail">Issued Out</span>
+      {% endif %}
+    </div>
+    <div class="catalog-card-body">
+      <div class="catalog-card-title">{{ book.title }}</div>
+      <div class="catalog-card-author">{{ book.author }}</div>
+      <div class="catalog-card-footer">
+        <span class="catalog-card-cat">{{ book.category }}</span>
+        {% if book.available_copies > 0 %}
+        <span class="catalog-card-btn">View <i class="bi bi-chevron-right"></i></span>
+        {% else %}
+        <span class="catalog-card-btn reserve">Reserve</span>
+        {% endif %}
+      </div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+
+<!-- Mobile Pagination -->
+{% if books.pages > 1 %}
+<div class="catalog-pagination">
+  {% if books.has_prev %}
+  <a href="{{ url_for('books.index', page=books.prev_num, search=search, category=category, availability=availability, sort=sort) }}" class="catalog-page-btn">
+    <i class="bi bi-chevron-left"></i> Prev
+  </a>
+  {% else %}
+  <span class="catalog-page-btn disabled"><i class="bi bi-chevron-left"></i> Prev</span>
+  {% endif %}
+
+  <span class="catalog-page-current">{{ books.page }} / {{ books.pages }}</span>
+
+  {% if books.has_next %}
+  <a href="{{ url_for('books.index', page=books.next_num, search=search, category=category, availability=availability, sort=sort) }}" class="catalog-page-btn">
+    Next <i class="bi bi-chevron-right"></i>
+  </a>
+  {% else %}
+  <span class="catalog-page-btn disabled">Next <i class="bi bi-chevron-right"></i></span>
+  {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<!-- Empty State -->
+<div class="catalog-empty-wrap">
+  <i class="bi bi-search"></i>
+  <h3>No Books Found</h3>
+  <p>We couldn't find any books matching your search or filters.</p>
+  <a href="{{ url_for('books.index') }}" class="btn btn-primary" style="border-radius:24px; padding:0.5rem 1.5rem;">
+    View All Books
+  </a>
+</div>
+{% endif %}
+
+{% else %}
+<!-- ADMIN / LIBRARIAN VIEW -->
 <div class="page-header">
   <div class="d-flex align-center justify-between" style="flex-wrap: wrap; gap: 1rem;">
     <div>
@@ -17,17 +149,17 @@
   </div>
 </div>
 
-<!-- Filters -->
-<div class="filter-bar">
+<!-- Admin Filters -->
+<form method="GET" action="{{ url_for('books.index') }}" class="filter-bar">
   <div class="search-input-wrapper" style="flex:2;">
     <i class="bi bi-search"></i>
-    <input type="text" class="form-control" id="searchInput" 
+    <input type="text" class="form-control" name="search" id="searchInput" 
            placeholder="Search by title, author, or ISBN..."
            value="{{ search }}" autocomplete="off">
   </div>
   <div class="filter-group">
     <label>Category</label>
-    <select class="form-select" id="categoryFilter">
+    <select class="form-select" name="category" id="categoryFilter" onchange="this.form.submit()">
       <option value="">All Categories</option>
       {% for cat in categories %}
       <option value="{{ cat }}" {% if cat == category %}selected{% endif %}>{{ cat }}</option>
@@ -36,7 +168,7 @@
   </div>
   <div class="filter-group">
     <label>Availability</label>
-    <select class="form-select" id="availFilter">
+    <select class="form-select" name="availability" id="availFilter" onchange="this.form.submit()">
       <option value="">All</option>
       <option value="available" {% if availability == 'available' %}selected{% endif %}>Available</option>
       <option value="unavailable" {% if availability == 'unavailable' %}selected{% endif %}>Not Available</option>
@@ -44,7 +176,7 @@
   </div>
   <div class="filter-group">
     <label>Sort By</label>
-    <select class="form-select" id="sortFilter">
+    <select class="form-select" name="sort" id="sortFilter" onchange="this.form.submit()">
       <option value="title_asc" {% if sort == 'title_asc' %}selected{% endif %}>Title A-Z</option>
       <option value="title_desc" {% if sort == 'title_desc' %}selected{% endif %}>Title Z-A</option>
       <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest</option>
@@ -55,9 +187,9 @@
   <div style="display:flex; align-items:flex-end;">
     <a href="{{ url_for('books.index') }}" class="btn btn-outline-secondary">Reset</a>
   </div>
-</div>
+</form>
 
-<!-- Books Table -->
+<!-- Admin Table View -->
 <div class="card">
   <div class="card-body" style="padding:0;">
     {% if books.items %}
@@ -141,19 +273,19 @@
       </table>
     </div>
 
-    <!-- Pagination -->
+    <!-- Admin Pagination -->
     {% if books.pages > 1 %}
     <div style="padding: 1rem 1.25rem; border-top: 1px solid #f0f0f0;">
       <div class="pagination">
         {% if books.has_prev %}
-          <a href="?page={{ books.prev_num }}&search={{ search }}&category={{ category }}&availability={{ availability }}&sort={{ sort }}" class="page-link">
+          <a href="{{ url_for('books.index', page=books.prev_num, search=search, category=category, availability=availability, sort=sort) }}" class="page-link">
             <i class="bi bi-chevron-left"></i>
           </a>
         {% endif %}
         
         {% for num in books.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
           {% if num %}
-            <a href="?page={{ num }}&search={{ search }}&category={{ category }}&availability={{ availability }}&sort={{ sort }}" 
+            <a href="{{ url_for('books.index', page=num, search=search, category=category, availability=availability, sort=sort) }}" 
                class="page-link {% if num == books.page %}active{% endif %}">{{ num }}</a>
           {% else %}
             <span class="page-link disabled">...</span>
@@ -161,7 +293,7 @@
         {% endfor %}
         
         {% if books.has_next %}
-          <a href="?page={{ books.next_num }}&search={{ search }}&category={{ category }}&availability={{ availability }}&sort={{ sort }}" class="page-link">
+          <a href="{{ url_for('books.index', page=books.next_num, search=search, category=category, availability=availability, sort=sort) }}" class="page-link">
             <i class="bi bi-chevron-right"></i>
           </a>
         {% endif %}
@@ -181,33 +313,5 @@
     {% endif %}
   </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-// Live search with debounce
-var searchInput = document.getElementById('searchInput');
-var categoryFilter = document.getElementById('categoryFilter');
-var availFilter = document.getElementById('availFilter');
-var sortFilter = document.getElementById('sortFilter');
-
-function applyFilters() {
-  var params = new URLSearchParams();
-  if (searchInput.value) params.set('search', searchInput.value);
-  if (categoryFilter.value) params.set('category', categoryFilter.value);
-  if (availFilter.value) params.set('availability', availFilter.value);
-  if (sortFilter.value) params.set('sort', sortFilter.value);
-  window.location.href = '?' + params.toString();
-}
-
-var debounceTimer;
-searchInput.addEventListener('input', function() {
-  clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(applyFilters, 500);
-});
-
-categoryFilter.addEventListener('change', applyFilters);
-availFilter.addEventListener('change', applyFilters);
-sortFilter.addEventListener('change', applyFilters);
-</script>
+{% endif %}
 {% endblock %}

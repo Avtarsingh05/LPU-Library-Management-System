@@ -84,11 +84,12 @@ def issue_book():
         member_id = request.form.get('member_id', '').strip()
         copy_id = request.form.get('copy_id', '').strip()
         book_id = request.form.get('book_id', '').strip() # Fallback for backward compat
+        library_id = request.form.get('library_id', '').strip()
         issue_date_str = request.form.get('issue_date')
         due_date_str = request.form.get('due_date')
 
         if not member_id: flash('Please select a member.', 'danger'); return redirect(url_for('issues.issue_book'))
-        if not copy_id and not book_id: flash('Please provide a Book ID or Copy ID.', 'danger'); return redirect(url_for('issues.issue_book'))
+        if not book_id: flash('Please provide a Book ID.', 'danger'); return redirect(url_for('issues.issue_book'))
 
         member = Member.get_by_id(member_id)
         if not member or member.status != 'active':
@@ -103,7 +104,7 @@ def issue_book():
             flash(f'Member has reached the maximum book limit ({max_books}).', 'danger')
             return redirect(url_for('issues.issue_book'))
 
-        # Fetch copy if copy_id is provided
+        # Fetch copy if copy_id is provided, else auto-assign
         from models.book_copy import BookCopy
         from models.user import User
         
@@ -116,6 +117,17 @@ def issue_book():
                 flash('Physical copy not found.', 'danger')
                 return redirect(url_for('issues.issue_book'))
             book_id = copy.book_id
+        else:
+            if not library_id:
+                flash('Please select a library to issue from.', 'danger')
+                return redirect(url_for('issues.issue_book'))
+            all_copies = BookCopy.get_by_book(book_id)
+            available = [c for c in all_copies if c.library_id == library_id and c.status == 'AVAILABLE']
+            if not available:
+                flash('No physical copies available for this book in the selected library.', 'danger')
+                return redirect(url_for('issues.issue_book'))
+            copy = available[0]
+            copy_id = copy.id
             
         book = Book.get_by_id(book_id)
         if not book:
@@ -129,7 +141,7 @@ def issue_book():
             return redirect(url_for('issues.issue_book'))
 
         # AUTHORIZATION ENFORCEMENT
-        target_library_id = copy.library_id if copy else None
+        target_library_id = copy.library_id
         
         if current_user.role == 'librarian':
             assigned_libs = current_user.get_assigned_library_ids()
@@ -137,12 +149,8 @@ def issue_book():
                 flash('No library assigned. Contact Super Admin.', 'danger')
                 return redirect(url_for('issues.issue_book'))
             
-            if copy:
-                if copy.library_id not in assigned_libs:
-                    flash('You are not authorized to issue books from this library.', 'danger')
-                    return redirect(url_for('issues.issue_book'))
-            else:
-                flash('Librarians must issue books using a specific physical copy ID from their library.', 'danger')
+            if copy.library_id not in assigned_libs:
+                flash('You are not authorized to issue books from this library.', 'danger')
                 return redirect(url_for('issues.issue_book'))
                 
         # ATOMIC TRANSACTION

@@ -43,34 +43,14 @@
         <div class="form-group">
           <label class="form-label">Select Book <span class="required">*</span></label>
           <div class="autocomplete-wrapper">
-            <input type="text" class="form-control" id="bookSearch" placeholder="First select a library, then search for a book..." autocomplete="off" disabled>
-            <div class="autocomplete-results" id="bookResults"></div>
+            <input type="text" class="form-control" id="issueBookSearch" placeholder="First select a library, then search for a book..." autocomplete="off" disabled>
+            <div class="autocomplete-results" id="issueBookResults"></div>
           </div>
         </div>
 
         <div id="bookAvailability"></div>
 
-        <div class="form-group">
-          <label class="form-label">Select Physical Copy <span class="required">*</span></label>
-          <div style="display:flex; gap:0.5rem;">
-            <select name="copy_id" id="copy_id" class="form-control" required disabled>
-              <option value="">Select a Book first...</option>
-            </select>
-            <button type="button" class="btn btn-outline-secondary" onclick="alert('QR Scanner would populate physical copy here (Mock)')" title="Scan QR Code"><i class="bi bi-qr-code-scan"></i></button>
-          </div>
-          <span class="form-text">Choose the specific physical copy you are handing to the member.</span>
-        </div>
-
-        <div class="form-grid-2">
-          <div class="form-group">
-            <label class="form-label">Issue Date <span class="required">*</span></label>
-            <input type="date" class="form-control" name="issue_date" id="issue_date" value="{{ today.isoformat() }}" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Due Date <span class="required">*</span></label>
-            <input type="date" class="form-control" name="due_date" id="due_date" required>
-          </div>
-        </div>
+        
 
         <div style="display:flex; gap:0.75rem; justify-content:flex-end; margin-top:1rem;">
           <a href="{{ url_for('issues.index') }}" class="btn btn-outline-secondary">Cancel</a>
@@ -127,21 +107,21 @@ if (issueDate.value) {
 }
 
 var librarySelect = document.getElementById('library_id');
-var bookSearch = document.getElementById('bookSearch');
-var copySelect = document.getElementById('copy_id');
+var bookSearch = document.getElementById('issueBookSearch');
+
 var issueBtn = document.getElementById('issueBtn');
 
 function resetBookSelection() {
   bookSearch.value = '';
   document.getElementById('book_id').value = '';
   bookSearch.disabled = !librarySelect.value;
-  copySelect.innerHTML = '<option value="">Select a Book first...</option>';
-  copySelect.disabled = true;
+  
+  
   issueBtn.disabled = true;
 }
 
 // Override bookSearch behavior defined in app.js
-var localBookResults = document.getElementById('bookResults');
+var localBookResults = document.getElementById('issueBookResults');
 var bookDebounce;
 
 bookSearch.addEventListener('input', function(e) {
@@ -176,24 +156,14 @@ bookSearch.addEventListener('input', function(e) {
             bookSearch.value = item.dataset.name;
             document.getElementById('book_id').value = item.dataset.id;
             localBookResults.style.display = 'none';
-            loadCopies(item.dataset.id, libId);
+            issueBtn.disabled = false;
           });
         });
       });
   }, 300);
 });
 
-function loadCopies(bookId, libId) {
-  copySelect.innerHTML = '<option value="">Loading copies...</option>';
-  copySelect.disabled = true;
-  
-  fetch('/libraries/' + encodeURIComponent(libId) + '/books/' + encodeURIComponent(bookId) + '/copies')
-    .then(r => r.json())
-    .then(copies => {
-      if (!copies.length) {
-        copySelect.innerHTML = '<option value="">No available copies in this library</option>';
-        issueBtn.disabled = true;
-      } else {
+ else {
         copySelect.innerHTML = '<option value="" disabled selected>Select specific physical copy</option>' + 
           copies.map(c => '<option value="' + c.id + '">' + c.id + ' (Condition: ' + c.condition + ')</option>').join('');
         copySelect.disabled = false;
@@ -206,3 +176,6 @@ function loadCopies(bookId, libId) {
 }
 </script>
 {% endblock %}
+
+
+

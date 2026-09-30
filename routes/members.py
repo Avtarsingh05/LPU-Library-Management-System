@@ -474,3 +474,40 @@ def notify_all():
         
     flash(f'Global notification sent to {len(users)} users successfully', 'success')
     return redirect(url_for('members.index'))
+
+@members_bp.route('/profile/update', methods=['POST'])
+@login_required
+def update_profile():
+    user_id = session.get('user_id')
+    member = Member.get_by_user_id(str(user_id))
+    if not member:
+        flash('Profile not found.', 'danger')
+        return redirect(url_for('dashboard.index'))
+        
+    name = request.form.get('name', '').strip()
+    phone = request.form.get('phone', '').strip()
+    department = request.form.get('department', '').strip()
+    course = request.form.get('course', '').strip()
+    address = request.form.get('address', '').strip()
+    
+    if not name:
+        flash('Name is required.', 'danger')
+        return redirect(url_for('members.view', id=member.id))
+        
+    member.update(
+        name=name,
+        phone=phone,
+        department=department,
+        course=course,
+        address=address
+    )
+    
+    # Also update user document name
+    from models.user import User
+    user = User.get_by_id(str(user_id))
+    if user and user.name != name:
+        user.update(name=name)
+        
+    flash('Profile updated successfully!', 'success')
+    return redirect(url_for('members.view', id=member.id))
+

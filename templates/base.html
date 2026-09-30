@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=5.2">
   <script type="module" src="https://cdn.jsdelivr.net/npm/@hotwired/turbo@8.0.4/dist/turbo.es2017-esm.js"></script>
   <script>
     document.addEventListener('change', function(e) {
@@ -31,8 +31,9 @@
 </head>
 <body>
 
-<div class="lms-wrapper">
+<div class="lms-wrapper {% if current_user and current_user.role == 'member' %}member-view{% endif %}">
 
+  {% if not current_user or current_user.role != 'member' %}
   <!-- SIDEBAR -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
@@ -144,12 +145,14 @@
   <!-- SIDEBAR OVERLAY (mobile) -->
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
+  {% endif %}
   <!-- MAIN CONTENT -->
   <div class="main-content">
     
     <!-- TOPBAR -->
     <header class="topbar">
       <div class="topbar-left">
+        {% if not current_user or current_user.role != 'member' %}
         <button class="menu-toggle" id="menuToggle" aria-label="Toggle sidebar">
           <i class="bi bi-three-dots-vertical"></i>
         </button>
@@ -157,14 +160,23 @@
           <i class="bi bi-search search-icon"></i>
           <input type="text" id="topbarSearch" placeholder="Search books..." autocomplete="off">
         </div>
+        {% else %}
+        <div style="display:flex; align-items:center; gap:0.5rem;">
+          <i class="bi bi-book-half topbar-brand-icon" style="font-size:1.3rem;"></i>
+          <span class="topbar-brand-text" style="font-weight:700; font-size:0.95rem;">{{ library_name }}</span>
+        </div>
+        <button id="memberSearchPopupBtn" class="topbar-btn notif-btn" title="Search books" style="margin-left:auto;">
+          <i class="bi bi-search"></i>
+        </button>
+        {% endif %}
       </div>
       <div class="topbar-right">
         <!-- Notifications -->
         <div style="position:relative;">
-          <button class="topbar-btn" id="notifBtn" title="Notifications">
+          <button class="topbar-btn notif-btn" id="notifBtn" title="Notifications">
             <i class="bi bi-bell"></i>
             {% if notifications %}
-            <span class="notification-dot"></span>
+            <span class="notification-dot notif-badge"></span>
             {% endif %}
           </button>
           <div class="notif-dropdown" id="notifDropdown">
@@ -199,18 +211,38 @@
               <div class="user-role">{{ current_user.role | capitalize }}</div>
             </div>
           </div>
-          <div class="notif-dropdown" id="userDropdown" style="width: 200px;">
-            <a href="{{ url_for('members.profile') }}" class="notif-item" style="text-decoration:none; color:inherit;">
-              <i class="bi bi-person"></i> My Profile
+          <div class="notif-dropdown" id="userDropdown" style="width: 240px; right: 0; left: auto;">
+            <!-- Profile header inside dropdown -->
+            <div style="padding: 1rem; background: linear-gradient(135deg, var(--primary), var(--accent)); color: #fff; border-radius: 12px 12px 0 0;">
+              <div style="display:flex; align-items:center; gap:0.75rem;">
+                <div style="width:42px; height:42px; border-radius:50%; border:2px solid rgba(255,255,255,0.7); overflow:hidden; flex-shrink:0; background:rgba(255,255,255,0.2); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:1rem;">
+                  {% if current_user.profile_pic %}
+                  <img src="{{ current_user.profile_pic }}" alt="" style="width:100%; height:100%; object-fit:cover;">
+                  {% else %}
+                  {{ current_user.name[0] | upper }}
+                  {% endif %}
+                </div>
+                <div>
+                  <div style="font-weight:700; font-size:0.9rem;">{{ current_user.name.split()[0] }}</div>
+                  <div style="font-size:0.72rem; opacity:0.85;">{{ current_user.email }}</div>
+                </div>
+              </div>
+            </div>
+            <!-- Menu items -->
+            <a href="{{ url_for('members.profile') }}" class="notif-item" style="text-decoration:none; color:inherit; display:flex; align-items:center; gap:0.6rem;">
+              <i class="bi bi-person-circle" style="color:var(--primary); font-size:1.1rem;"></i> My Profile
+            </a>
+            <a href="{{ url_for('members.profile') }}" class="notif-item" style="text-decoration:none; color:inherit; display:flex; align-items:center; gap:0.6rem;">
+              <i class="bi bi-sliders" style="color:var(--primary); font-size:1.1rem;"></i> Profile Settings
             </a>
             {% if current_user.is_admin() %}
-            <a href="{{ url_for('settings.index') }}" class="notif-item" style="text-decoration:none; color:inherit;">
-              <i class="bi bi-gear"></i> Settings
+            <a href="{{ url_for('settings.index') }}" class="notif-item" style="text-decoration:none; color:inherit; display:flex; align-items:center; gap:0.6rem;">
+              <i class="bi bi-gear" style="color:var(--text-muted); font-size:1.1rem;"></i> App Settings
             </a>
             {% endif %}
             <div style="border-top: 1px solid var(--border); margin: 0.25rem 0;"></div>
-            <a href="{{ url_for('auth.logout') }}" class="notif-item" style="text-decoration:none; color:var(--danger);">
-              <i class="bi bi-box-arrow-right"></i> Logout
+            <a href="{{ url_for('auth.logout') }}" class="notif-item" style="text-decoration:none; color:var(--danger); display:flex; align-items:center; gap:0.6rem;">
+              <i class="bi bi-box-arrow-right" style="font-size:1.1rem;"></i> Logout
             </a>
           </div>
         </div>
@@ -238,6 +270,28 @@
     </main>
   </div>
 </div>
+
+
+<!-- Member Search Popup (full-screen overlay) -->
+{% if current_user and current_user.role == 'member' %}
+<div class="member-search-popup" id="memberSearchPopup">
+  <div class="member-search-popup-inner">
+    <div class="member-search-popup-bar">
+      <i class="bi bi-search" style="color:var(--primary); font-size:1.1rem; flex-shrink:0;"></i>
+      <input type="text" id="memberSearchPopupInput" placeholder="Search books, authors..." autocomplete="off">
+      <button id="memberSearchPopupClose" style="background:none; border:none; font-size:1.4rem; color:var(--text-muted); cursor:pointer; padding:0 0.25rem;">
+        <i class="bi bi-x"></i>
+      </button>
+    </div>
+    <div id="memberSearchPopupResults" class="member-search-popup-results"></div>
+    <div style="padding:0.75rem; text-align:center;">
+      <a id="memberSearchPopupSeeAll" href="/books" style="font-size:0.85rem; color:var(--primary); text-decoration:none;">
+        <i class="bi bi-grid"></i> Browse all books
+      </a>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 <!-- Delete Confirmation Modal -->
 <div class="modal-overlay" id="deleteModal">
@@ -288,7 +342,37 @@
   {% endif %}
 {% endif %}
 
-<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% if current_user and current_user.role == 'member' %}
+<!-- FLOATING BOTTOM NAV (SNACKBAR) FOR USERS -->
+<nav class="member-bottom-nav">
+  <a href="{{ url_for('dashboard.index') }}" class="nav-item {% if request.endpoint == 'dashboard.index' %}active{% endif %}">
+    <i class="bi bi-house"></i>
+    <span>Home</span>
+  </a>
+  <a href="{{ url_for('books.index') }}" class="nav-item {% if request.blueprint == 'books' %}active{% endif %}">
+    <i class="bi bi-search"></i>
+    <span>Search</span>
+  </a>
+  <a href="{{ url_for('elibrary.index') }}" class="nav-item {% if request.blueprint == 'elibrary' %}active{% endif %}">
+    <i class="bi bi-cloud-arrow-down"></i>
+    <span>E-Library</span>
+  </a>
+    <a href="{{ url_for('members.profile') }}" class="nav-item {% if request.endpoint == 'members.profile' %}active{% endif %}">
+    <i class="bi bi-person"></i>
+    <span>Profile</span>
+  </a>
+</nav>
+{% endif %}
+
+<script src="{{ url_for('static', filename='js/app.js') }}?v=3.0"></script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>
+
+
+
+
+
+
+
+

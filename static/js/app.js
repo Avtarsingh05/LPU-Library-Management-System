@@ -7,29 +7,29 @@ function initApp() {
   'use strict';
 
   // =============================================
-  // SIDEBAR TOGGLE (Mobile)
+  // SIDEBAR TOGGLE (Non-member / Desktop)
   // =============================================
-  const menuToggle = document.getElementById('menuToggle');
-  const sidebar = document.querySelector('.sidebar');
-  const sidebarOverlay = document.getElementById('sidebarOverlay');
+  var menuToggle = document.getElementById('menuToggle');
+  var sidebar = document.querySelector('.sidebar');
+  var sidebarOverlay = document.getElementById('sidebarOverlay');
+  var lmsWrapper = document.querySelector('.lms-wrapper');
 
-  const lmsWrapper = document.querySelector('.lms-wrapper');
   if (menuToggle && sidebar) {
-    menuToggle.addEventListener('click', function() {
+    menuToggle.onclick = function() {
       if (window.innerWidth <= 768) {
         sidebar.classList.toggle('open');
         if (sidebarOverlay) sidebarOverlay.classList.toggle('show');
       } else {
         if (lmsWrapper) lmsWrapper.classList.toggle('sidebar-collapsed');
       }
-    });
+    };
   }
 
   if (sidebarOverlay) {
-    sidebarOverlay.addEventListener('click', function() {
+    sidebarOverlay.onclick = function() {
       sidebar.classList.remove('open');
       sidebarOverlay.classList.remove('show');
-    });
+    };
   }
 
   // =============================================
@@ -42,18 +42,17 @@ function initApp() {
         alert.style.opacity = '0';
         alert.style.transform = 'translateY(-8px)';
         alert.style.transition = 'all 0.3s ease';
-        setTimeoutfunction initApp() { alert.remove(); }, 300);
+        setTimeout(function() { alert.remove(); }, 300);
       }
     });
   });
 
-  // Auto-dismiss flash messages after 5 seconds
-  setTimeoutfunction initApp() {
+  setTimeout(function() {
     document.querySelectorAll('.alert').forEach(function(alert) {
       alert.style.opacity = '0';
       alert.style.transform = 'translateY(-8px)';
       alert.style.transition = 'all 0.3s ease';
-      setTimeoutfunction initApp() { if (alert.parentNode) alert.remove(); }, 300);
+      setTimeout(function() { if (alert.parentNode) alert.remove(); }, 300);
     });
   }, 5000);
 
@@ -77,7 +76,6 @@ function initApp() {
     });
   });
 
-  // Close modal
   document.querySelectorAll('[data-modal-close]').forEach(function(btn) {
     btn.addEventListener('click', function() {
       var modal = btn.closest('.modal-overlay');
@@ -85,7 +83,6 @@ function initApp() {
     });
   });
 
-  // Close modal on overlay click
   document.querySelectorAll('.modal-overlay').forEach(function(overlay) {
     overlay.addEventListener('click', function(e) {
       if (e.target === overlay) overlay.classList.remove('show');
@@ -97,52 +94,139 @@ function initApp() {
   // =============================================
   var notifBtn = document.getElementById('notifBtn');
   var notifDropdown = document.getElementById('notifDropdown');
+  var userDropdown = document.getElementById('userDropdown');
 
   if (notifBtn && notifDropdown) {
-    notifBtn.addEventListener('click', function(e) {
+    notifBtn.onclick = function(e) {
       e.stopPropagation();
       var isShowing = notifDropdown.classList.contains('show');
       if (userDropdown) userDropdown.classList.remove('show');
       notifDropdown.classList.toggle('show');
-      
+
       if (!isShowing) {
-        var dot = notifBtn.querySelector('.notification-dot');
+        var dot = notifBtn.querySelector('.notification-dot, .notif-badge');
         if (dot) {
           fetch('/notifications/read', { method: 'POST' })
             .then(function(r) { return r.json(); })
             .then(function(d) {
-              if (d.status === 'success') {
-                dot.style.display = 'none';
-              }
+              if (d.status === 'success') dot.style.display = 'none';
             })
-            .catch(function(e) { console.error(e); });
+            .catch(function() {});
         }
       }
-    });
+    };
   }
 
   // =============================================
   // USER PROFILE DROPDOWN
   // =============================================
   var userMenuBtn = document.getElementById('userMenuBtn');
-  var userDropdown = document.getElementById('userDropdown');
+  userDropdown = document.getElementById('userDropdown');
 
   if (userMenuBtn && userDropdown) {
-    userMenuBtn.addEventListener('click', function(e) {
+    userMenuBtn.onclick = function(e) {
       e.stopPropagation();
+      if (notifDropdown) notifDropdown.classList.remove('show');
       userDropdown.classList.toggle('show');
+    };
+  }
+
+  // Close dropdowns on outside click (bind once, look up elements each time)
+  if (!window._docClickBound) {
+    document.addEventListener('click', function(e) {
+      var nDrop = document.getElementById('notifDropdown');
+      var uDrop = document.getElementById('userDropdown');
+      var nBtn  = document.getElementById('notifBtn');
+      var uBtn  = document.getElementById('userMenuBtn');
+      if (nDrop && nBtn && !nBtn.contains(e.target) && !nDrop.contains(e.target)) {
+        nDrop.classList.remove('show');
+      }
+      if (uDrop && uBtn && !uBtn.contains(e.target) && !uDrop.contains(e.target)) {
+        uDrop.classList.remove('show');
+      }
+    });
+    window._docClickBound = true;
+  }
+
+  // =============================================
+  // MEMBER SEARCH POPUP (Dashboard search button)
+  // =============================================
+  var searchPopupBtn = document.getElementById('memberSearchPopupBtn');
+  var searchPopup = document.getElementById('memberSearchPopup');
+  var searchPopupInput = document.getElementById('memberSearchPopupInput');
+  var searchPopupClose = document.getElementById('memberSearchPopupClose');
+
+  if (searchPopupBtn && searchPopup) {
+    searchPopupBtn.onclick = function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      searchPopup.classList.add('show');
+      if (searchPopupInput) setTimeout(function() { searchPopupInput.focus(); }, 100);
+    };
+  }
+  if (searchPopupClose && searchPopup) {
+    searchPopupClose.onclick = function() {
+      searchPopup.classList.remove('show');
+    };
+  }
+  if (searchPopup) {
+    searchPopup.addEventListener('click', function(e) {
+      if (e.target === searchPopup) searchPopup.classList.remove('show');
+    });
+  }
+  if (searchPopupInput) {
+    searchPopupInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        var q = searchPopupInput.value.trim();
+        if (q) window.location.href = '/books?search=' + encodeURIComponent(q);
+      }
+      if (e.key === 'Escape') {
+        if (searchPopup) searchPopup.classList.remove('show');
+      }
+    });
+    // Live search results in popup
+    var popupDebounce;
+    var popupResults = document.getElementById('memberSearchPopupResults');
+    searchPopupInput.addEventListener('input', function() {
+      clearTimeout(popupDebounce);
+      var q = searchPopupInput.value.trim();
+      if (!popupResults) return;
+      if (q.length < 2) { popupResults.innerHTML = ''; return; }
+      popupDebounce = setTimeout(function() {
+        fetch('/books/search?q=' + encodeURIComponent(q))
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (!data.length) {
+              popupResults.innerHTML = '<div class="search-popup-item muted">No books found for "' + q + '"</div>';
+            } else {
+              popupResults.innerHTML = data.slice(0, 8).map(function(b) {
+                var avail = b.available
+                  ? '<span style="color:#27ae60; font-size:0.7rem;">Available</span>'
+                  : '<span style="color:#e74c3c; font-size:0.7rem;">Unavailable</span>';
+                return '<a href="/books/' + b.id + '" class="search-popup-item">' +
+                  '<div style="font-weight:600; font-size:0.9rem;">' + b.title + '</div>' +
+                  '<div style="font-size:0.75rem; color:#666;">by ' + b.author + '&nbsp;&nbsp;' + avail + '</div>' +
+                  '</a>';
+              }).join('');
+            }
+          })
+          .catch(function() {});
+      }, 250);
     });
   }
 
-  // Close dropdowns on outside click
-  document.addEventListener('click', function(e) {
-    if (notifBtn && notifDropdown && !notifBtn.contains(e.target) && !notifDropdown.contains(e.target)) {
-      notifDropdown.classList.remove('show');
-    }
-    if (userMenuBtn && userDropdown && !userMenuBtn.contains(e.target) && !userDropdown.contains(e.target)) {
-      userDropdown.classList.remove('show');
-    }
-  });
+  // =============================================
+  // TOPBAR SEARCH (Non-member / admin)
+  // =============================================
+  var topbarSearchInput = document.getElementById('topbarSearch');
+  if (topbarSearchInput) {
+    topbarSearchInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        var q = topbarSearchInput.value.trim();
+        if (q) window.location.href = '/books?search=' + encodeURIComponent(q);
+      }
+    });
+  }
 
   // =============================================
   // LIVE MEMBER SEARCH (Issue Book page)
@@ -158,8 +242,7 @@ function initApp() {
       var q = memberSearch.value.trim();
       if (!memberResults) return;
       if (q.length < 2) { memberResults.innerHTML = ''; memberResults.style.display = 'none'; return; }
-      
-      memberDebounce = setTimeoutfunction initApp() {
+      memberDebounce = setTimeout(function() {
         fetch('/members/search?q=' + encodeURIComponent(q))
           .then(function(r) { return r.json(); })
           .then(function(data) {
@@ -174,7 +257,6 @@ function initApp() {
               }).join('');
             }
             memberResults.style.display = 'block';
-
             memberResults.querySelectorAll('.autocomplete-item[data-id]').forEach(function(item) {
               item.addEventListener('click', function() {
                 memberSearch.value = item.dataset.name;
@@ -188,67 +270,12 @@ function initApp() {
   }
 
   // =============================================
-  // LIVE BOOK SEARCH (Issue Book page)
-  // =============================================
-  var bookSearch = document.getElementById('bookSearch');
-  var bookResults = document.getElementById('bookResults');
-  var bookIdInput = document.getElementById('book_id');
-  var bookAvailability = document.getElementById('bookAvailability');
-
-  if (bookSearch) {
-    var bookDebounce;
-    bookSearch.addEventListener('input', function() {
-      clearTimeout(bookDebounce);
-      var q = bookSearch.value.trim();
-      if (!bookResults) return;
-      if (q.length < 2) { bookResults.innerHTML = ''; bookResults.style.display = 'none'; return; }
-      
-      bookDebounce = setTimeoutfunction initApp() {
-        fetch('/books/search?q=' + encodeURIComponent(q))
-          .then(function(r) { return r.json(); })
-          .then(function(data) {
-            if (!data.length) {
-              bookResults.innerHTML = '<div class="autocomplete-item text-muted">No books found</div>';
-            } else {
-              bookResults.innerHTML = data.map(function(b) {
-                var avail = b.available ? 
-                  '<span class="badge badge-success">' + b.available_copies + ' available</span>' :
-                  '<span class="badge badge-danger">Not available</span>';
-                return '<div class="autocomplete-item" data-id="' + b.id + '" data-name="' + b.title + '" data-available="' + b.available + '">' +
-                  '<strong>' + b.title + '</strong> ' + avail +
-                  '<small class="d-block text-muted">by ' + b.author + ' | ISBN: ' + b.isbn + '</small>' +
-                  '</div>';
-              }).join('');
-            }
-            bookResults.style.display = 'block';
-
-            bookResults.querySelectorAll('.autocomplete-item[data-id]').forEach(function(item) {
-              item.addEventListener('click', function() {
-                bookSearch.value = item.dataset.name;
-                if (bookIdInput) bookIdInput.value = item.dataset.id;
-                bookResults.style.display = 'none';
-                if (bookAvailability) {
-                  if (item.dataset.available === 'True' || item.dataset.available === 'true') {
-                    bookAvailability.innerHTML = '<div class="alert alert-success"><i class="bi bi-check-circle"></i> Book is available for issuing</div>';
-                  } else {
-                    bookAvailability.innerHTML = '<div class="alert alert-danger"><i class="bi bi-x-circle"></i> Book is not available</div>';
-                    var issueBtn = document.getElementById('issueBtn');
-                    if (issueBtn) issueBtn.disabled = true;
-                  }
-                }
-              });
-            });
-          });
-      }, 300);
-    });
-  }
-
-  // =============================================
   // AUTO-CALCULATE DUE DATE
   // =============================================
   var issueDateInput = document.getElementById('issue_date');
   var dueDateInput = document.getElementById('due_date');
-  var defaultDays = parseInt(document.getElementById('default_borrow_days')?.value || '14');
+  var defaultDaysEl = document.getElementById('default_borrow_days');
+  var defaultDays = parseInt(defaultDaysEl ? defaultDaysEl.value : '14');
 
   if (issueDateInput && dueDateInput) {
     issueDateInput.addEventListener('change', function() {
@@ -262,49 +289,23 @@ function initApp() {
   }
 
   // =============================================
-  // TOPBAR SEARCH
+  // AUTOCOMPLETE STYLES
   // =============================================
-  var topbarSearchInput = document.getElementById('topbarSearch');
-  if (topbarSearchInput) {
-    topbarSearchInput.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') {
-        var q = topbarSearchInput.value.trim();
-        if (q) window.location.href = '/books?search=' + encodeURIComponent(q);
-      }
-    });
+  if (!document.getElementById('_lms_autocomplete_style')) {
+    var style = document.createElement('style');
+    style.id = '_lms_autocomplete_style';
+    style.textContent = [
+      '.autocomplete-wrapper { position: relative; }',
+      '.autocomplete-results { position:absolute; top:100%; left:0; right:0; background:white;',
+      '  border:1px solid var(--border); border-radius:0 0 var(--radius) var(--radius);',
+      '  box-shadow:var(--shadow-md); z-index:100; max-height:250px; overflow-y:auto; display:none; }',
+      '.autocomplete-item { padding:0.65rem 0.875rem; cursor:pointer; font-size:0.875rem;',
+      '  border-bottom:1px solid #f5f5f5; transition:background 0.15s; }',
+      '.autocomplete-item:last-child { border-bottom:none; }',
+      '.autocomplete-item:hover { background:#f0f4ff; }'
+    ].join('\n');
+    document.head.appendChild(style);
   }
-
-  // =============================================
-  // AUTOCOMPLETE STYLES (inline)
-  // =============================================
-  var style = document.createElement('style');
-  style.textContent = `
-    .autocomplete-wrapper { position: relative; }
-    .autocomplete-results {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      background: white;
-      border: 1px solid var(--border);
-      border-radius: 0 0 var(--radius) var(--radius);
-      box-shadow: var(--shadow-md);
-      z-index: 100;
-      max-height: 250px;
-      overflow-y: auto;
-      display: none;
-    }
-    .autocomplete-item {
-      padding: 0.65rem 0.875rem;
-      cursor: pointer;
-      font-size: 0.875rem;
-      border-bottom: 1px solid #f5f5f5;
-      transition: background 0.15s;
-    }
-    .autocomplete-item:last-child { border-bottom: none; }
-    .autocomplete-item:hover { background: #f0f4ff; }
-  `;
-  document.head.appendChild(style);
 
   // =============================================
   // PRINT FUNCTIONALITY
@@ -332,27 +333,14 @@ function initApp() {
   });
 
   // =============================================
-  // ACTIVE SIDEBAR LINK
-  // =============================================
-  var currentPath = window.location.pathname;
-  document.querySelectorAll('.sidebar-link').forEach(function(link) {
-    var href = link.getAttribute('href');
-    if (href && href !== '/' && currentPath.startsWith(href)) {
-      link.classList.add('active');
-    } else if (href === '/' && (currentPath === '/' || currentPath === '/dashboard')) {
-      link.classList.add('active');
-    }
-  });
-
-  // =============================================
-  // TOOLTIP INITIALIZATION
+  // TOOLTIPS
   // =============================================
   document.querySelectorAll('[title]').forEach(function(el) {
     el.setAttribute('data-bs-toggle', 'tooltip');
   });
+}
 
-} 
-
-document.addEventListener('turbo:load', initApp);
+// Run on normal page load AND on Turbo navigation
 document.addEventListener('DOMContentLoaded', initApp);
+document.addEventListener('turbo:load', initApp);
 
