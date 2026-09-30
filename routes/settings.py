@@ -49,7 +49,7 @@ def index():
 
 def _get_settings():
     return {
-        'library_name': Setting.get('library_name', 'LPU Library Management'),
+        'library_name': Setting.get('library_name', 'LPU Library'),
         'library_address': Setting.get('library_address', '123 University Road'),
         'library_email': Setting.get('library_email', 'library@university.edu'),
         'library_phone': Setting.get('library_phone', '+91-9876543210'),
@@ -57,3 +57,4 @@ def _get_settings():
         'max_books_per_member': Setting.get('max_books_per_member', '5'),
         'default_borrow_days': Setting.get('default_borrow_days', '14'),
     }
+

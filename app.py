@@ -55,7 +55,7 @@ def create_app(config_name='default'):
             from flask import current_app
             user = None
             notifications = []
-            library_name = 'LPU Library Management'
+            library_name = 'LPU Library'
             try:
                 if 'user_id' in session:
                     from models.user import User
@@ -94,7 +94,7 @@ def create_app(config_name='default'):
             
             try:
                 from models.setting import Setting
-                val = Setting.get('library_name', 'LPU Library Management')
+                val = Setting.get('library_name', 'LPU Library')
                 if val:
                     library_name = val
             except Exception:
@@ -140,3 +140,4 @@ app = create_app()
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
+
