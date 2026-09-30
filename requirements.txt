@@ -6,3 +6,5 @@ firebase-admin==6.5.0
 Flask-Limiter==3.8.0
 cloudinary==1.46.2
 razorpay==1.4.1
+
+setuptools>=65.5.1
