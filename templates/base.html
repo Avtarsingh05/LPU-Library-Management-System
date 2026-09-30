@@ -233,13 +233,9 @@
             <a href="{{ url_for('members.profile') }}" class="notif-item" style="text-decoration:none; color:inherit; display:flex; align-items:center; gap:0.6rem;">
               <i class="bi bi-person-circle" style="color:var(--primary); font-size:1.1rem;"></i> My Profile
             </a>
-            <div class="notif-item" id="darkModeToggleBtn" style="cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:0.6rem;">
-              <div style="display:flex; align-items:center; gap:0.6rem;">
-                <i class="bi bi-moon-stars" style="color:var(--primary); font-size:1.1rem;"></i> Dark Mode
-              </div>
-              <div class="form-check form-switch" style="margin:0;">
-                <input class="form-check-input" type="checkbox" id="darkModeSwitch" style="cursor:pointer; margin:0;">
-              </div>
+            <div class="notif-item" id="darkModeToggleBtn" style="cursor:pointer; display:flex; align-items:center; gap:0.6rem;">
+              <i id="darkModeIcon" class="bi bi-moon-stars" style="color:var(--primary); font-size:1.1rem;"></i> 
+              <span id="darkModeText">Dark Mode</span>
             </div>
             {% if current_user.is_admin() %}
             <a href="{{ url_for('settings.index') }}" class="notif-item" style="text-decoration:none; color:inherit; display:flex; align-items:center; gap:0.6rem;">
@@ -375,24 +371,36 @@
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     const toggleBtn = document.getElementById('darkModeToggleBtn');
-    const switchInput = document.getElementById('darkModeSwitch');
+    const darkModeIcon = document.getElementById('darkModeIcon');
+    const darkModeText = document.getElementById('darkModeText');
     
+    function updateDarkModeUI(isDark) {
+      if (!darkModeIcon || !darkModeText) return;
+      if (isDark) {
+        darkModeIcon.className = 'bi bi-sun';
+        darkModeText.innerText = 'Light Mode';
+      } else {
+        darkModeIcon.className = 'bi bi-moon-stars';
+        darkModeText.innerText = 'Dark Mode';
+      }
+    }
+
     if (localStorage.getItem('theme') === 'dark') {
-      if(switchInput) switchInput.checked = true;
+      updateDarkModeUI(true);
     }
 
     if (toggleBtn) {
       toggleBtn.addEventListener('click', (e) => {
-        if(e.target !== switchInput) {
-          switchInput.checked = !switchInput.checked;
-        }
+        const isCurrentlyDark = document.documentElement.getAttribute('data-theme') === 'dark';
         
-        if (switchInput.checked) {
+        if (!isCurrentlyDark) {
           document.documentElement.setAttribute('data-theme', 'dark');
           localStorage.setItem('theme', 'dark');
+          updateDarkModeUI(true);
         } else {
           document.documentElement.removeAttribute('data-theme');
           localStorage.setItem('theme', 'light');
+          updateDarkModeUI(false);
         }
       });
     }
@@ -400,6 +408,7 @@
 </script>
 </body>
 </html>
+
 
 
 
