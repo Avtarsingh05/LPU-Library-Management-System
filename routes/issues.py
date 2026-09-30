@@ -255,6 +255,7 @@ def return_book():
         return_date_str = request.form.get('return_date')
 
         issue = Issue.get_by_id(issue_id)
+        book = Book.get_by_id(issue.book_id) if issue else None
         if not issue:
             flash('Issue record not found.', 'danger')
             return redirect(url_for('issues.return_book'))
@@ -375,5 +376,8 @@ def return_book():
 
     return render_template('issues/return.html',
                            active_issues=active_issues, today=today, search=search)
+
+
+
 
 

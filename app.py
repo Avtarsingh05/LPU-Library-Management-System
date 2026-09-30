@@ -10,6 +10,9 @@ def create_app(config_name='default'):
     # Initialize rate limiter
     limiter.init_app(app)
 
+    app.config['RAZORPAY_KEY_ID'] = os.environ.get('RAZORPAY_KEY_ID', '')
+    app.config['RAZORPAY_KEY_SECRET'] = os.environ.get('RAZORPAY_KEY_SECRET', '')
+
     import cloudinary
     cloudinary.config(
         cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME', ''),
@@ -160,3 +163,4 @@ handler = app
 
 if __name__ == '__main__':
     app.run(debug=True)
+

@@ -50,3 +50,92 @@ def waive(id):
     fine.update(status='waived', paid_date=datetime.utcnow())
     flash(f'Fine of ₹{fine.amount:.2f} has been waived.', 'info')
     return redirect(url_for('fines.index'))
+from routes.auth import login_required
+import razorpay
+from flask import current_app, jsonify, session
+from models.member import Member
+
+@fines_bp.route('/create_order', methods=['POST'])
+@login_required
+def create_order():
+    try:
+        user_email = session.get('user_email')
+        member = Member.get_by_email(user_email)
+        if not member:
+            return jsonify({'error': 'Member not found'}), 404
+            
+        pending_fines = Fine.get_by_member(member.id, status='pending')
+        total_amount = sum(f.amount for f in pending_fines)
+        
+        if total_amount <= 0:
+            return jsonify({'error': 'No pending fines'}), 400
+            
+        key_id = current_app.config.get('RAZORPAY_KEY_ID')
+        key_secret = current_app.config.get('RAZORPAY_KEY_SECRET')
+        
+        if not key_id or not key_secret or 'your_' in key_id:
+            # Fallback for development without Razorpay keys
+            return jsonify({
+                'id': 'order_dummy_123',
+                'amount': int(total_amount * 100),
+                'currency': 'INR',
+                'dummy': True
+            })
+            
+        client = razorpay.Client(auth=(key_id, key_secret))
+        data = { "amount": int(total_amount * 100), "currency": "INR", "receipt": f"receipt_{member.id}" }
+        payment = client.order.create(data=data)
+        
+        return jsonify({
+            'id': payment['id'],
+            'amount': payment['amount'],
+            'currency': payment['currency'],
+            'key': key_id,
+            'dummy': False
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@fines_bp.route('/verify_payment', methods=['POST'])
+@login_required
+def verify_payment():
+    try:
+        data = request.json
+        user_email = session.get('user_email')
+        member = Member.get_by_email(user_email)
+        
+        if data.get('dummy'):
+            # Process dummy payment
+            pending_fines = Fine.get_by_member(member.id, status='pending')
+            for f in pending_fines:
+                f.update(status='paid', paid_date=datetime.utcnow())
+                # also clear on issue
+                if f.issue_id:
+                    from models.issue import Issue
+                    issue = Issue.get_by_id(f.issue_id)
+                    if issue:
+                        issue.update(fine_amount=0)
+            return jsonify({'status': 'success'})
+            
+        key_id = current_app.config.get('RAZORPAY_KEY_ID')
+        key_secret = current_app.config.get('RAZORPAY_KEY_SECRET')
+        client = razorpay.Client(auth=(key_id, key_secret))
+        
+        client.utility.verify_payment_signature({
+            'razorpay_order_id': data['razorpay_order_id'],
+            'razorpay_payment_id': data['razorpay_payment_id'],
+            'razorpay_signature': data['razorpay_signature']
+        })
+        
+        pending_fines = Fine.get_by_member(member.id, status='pending')
+        for f in pending_fines:
+            f.update(status='paid', paid_date=datetime.utcnow())
+            if f.issue_id:
+                from models.issue import Issue
+                issue = Issue.get_by_id(f.issue_id)
+                if issue:
+                    issue.update(fine_amount=0)
+                    
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        return jsonify({'status': 'failed', 'error': str(e)}), 400
