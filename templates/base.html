@@ -1,9 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Dashboard{% endblock %} | {{ library_name }}</title>
+  <script>if(localStorage.getItem('theme')==='dark'){document.documentElement.setAttribute('data-theme','dark');}</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -232,9 +233,14 @@
             <a href="{{ url_for('members.profile') }}" class="notif-item" style="text-decoration:none; color:inherit; display:flex; align-items:center; gap:0.6rem;">
               <i class="bi bi-person-circle" style="color:var(--primary); font-size:1.1rem;"></i> My Profile
             </a>
-            <a href="{{ url_for('members.profile') }}" class="notif-item" style="text-decoration:none; color:inherit; display:flex; align-items:center; gap:0.6rem;">
-              <i class="bi bi-sliders" style="color:var(--primary); font-size:1.1rem;"></i> Profile Settings
-            </a>
+            <div class="notif-item" id="darkModeToggleBtn" style="cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:0.6rem;">
+              <div style="display:flex; align-items:center; gap:0.6rem;">
+                <i class="bi bi-moon-stars" style="color:var(--primary); font-size:1.1rem;"></i> Dark Mode
+              </div>
+              <div class="form-check form-switch" style="margin:0;">
+                <input class="form-check-input" type="checkbox" id="darkModeSwitch" style="cursor:pointer; margin:0;">
+              </div>
+            </div>
             {% if current_user.is_admin() %}
             <a href="{{ url_for('settings.index') }}" class="notif-item" style="text-decoration:none; color:inherit; display:flex; align-items:center; gap:0.6rem;">
               <i class="bi bi-gear" style="color:var(--text-muted); font-size:1.1rem;"></i> App Settings
@@ -366,8 +372,35 @@
 
 <script src="{{ url_for('static', filename='js/app.js') }}?v=3.0"></script>
 {% block extra_js %}{% endblock %}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const toggleBtn = document.getElementById('darkModeToggleBtn');
+    const switchInput = document.getElementById('darkModeSwitch');
+    
+    if (localStorage.getItem('theme') === 'dark') {
+      if(switchInput) switchInput.checked = true;
+    }
+
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', (e) => {
+        if(e.target !== switchInput) {
+          switchInput.checked = !switchInput.checked;
+        }
+        
+        if (switchInput.checked) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+          localStorage.setItem('theme', 'dark');
+        } else {
+          document.documentElement.removeAttribute('data-theme');
+          localStorage.setItem('theme', 'light');
+        }
+      });
+    }
+  });
+</script>
 </body>
 </html>
+
 
 
 
