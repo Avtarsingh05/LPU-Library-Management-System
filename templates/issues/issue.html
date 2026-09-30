@@ -49,6 +49,20 @@
         </div>
 
         <div id="bookAvailability"></div>
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group">
+              <label class="form-label">Issue Date <span class="required">*</span></label>
+              <input type="date" class="form-control" name="issue_date" id="issue_date" value="{{ today.isoformat() }}" required>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group">
+              <label class="form-label">Due Date <span class="required">*</span></label>
+              <input type="date" class="form-control" name="due_date" id="due_date" required>
+            </div>
+          </div>
+        </div>
 
         
 
@@ -112,13 +126,12 @@ var bookSearch = document.getElementById('issueBookSearch');
 var issueBtn = document.getElementById('issueBtn');
 
 function resetBookSelection() {
-  bookSearch.value = '';
-  document.getElementById('book_id').value = '';
-  bookSearch.disabled = !librarySelect.value;
-  
-  
-  issueBtn.disabled = true;
-}
+    bookSearch.value = '';
+    document.getElementById('book_id').value = '';
+    bookSearch.disabled = !librarySelect.value;
+    document.getElementById('bookAvailability').innerHTML = '';
+    issueBtn.disabled = true;
+  }
 
 // Override bookSearch behavior defined in app.js
 var localBookResults = document.getElementById('issueBookResults');
@@ -156,26 +169,50 @@ bookSearch.addEventListener('input', function(e) {
             bookSearch.value = item.dataset.name;
             document.getElementById('book_id').value = item.dataset.id;
             localBookResults.style.display = 'none';
-            issueBtn.disabled = false;
+            issueBtn.disabled = true; // wait for check
+            checkAvailability(item.dataset.id, libId);
           });
         });
       });
   }, 300);
 });
 
- else {
-        copySelect.innerHTML = '<option value="" disabled selected>Select specific physical copy</option>' + 
-          copies.map(c => '<option value="' + c.id + '">' + c.id + ' (Condition: ' + c.condition + ')</option>').join('');
-        copySelect.disabled = false;
-        
-        copySelect.addEventListener('change', function() {
-          issueBtn.disabled = !copySelect.value;
-        });
+function checkAvailability(bookId, libId) {
+  var availDiv = document.getElementById('bookAvailability');
+  availDiv.innerHTML = '<div class="text-muted small mt-1"><i class="bi bi-hourglass"></i> Checking availability...</div>';
+  fetch('/libraries/' + encodeURIComponent(libId) + '/books/' + encodeURIComponent(bookId) + '/copies')
+    .then(function(r) { return r.json(); })
+    .then(function(copies) {
+      var libName = librarySelect.options[librarySelect.selectedIndex].text;
+      if (!copies.length) {
+        fetch('/libraries/books/' + encodeURIComponent(bookId) + '/availability')
+          .then(function(r2) { return r2.json(); })
+          .then(function(otherLibs) {
+            if (otherLibs.length > 0) {
+              var alt = otherLibs.map(function(l) { return l.available_copies + ' in ' + l.library_name; }).join(', ');
+              availDiv.innerHTML = '<div class="text-warning small mt-2 p-2" style="background:#fff9e6; border-radius:4px;"><i class="bi bi-exclamation-triangle"></i> No copies available in <strong>' + libName + '</strong>. <br><small>However, it IS available in: ' + alt + '</small></div>';
+            } else {
+              availDiv.innerHTML = '<div class="text-danger small mt-2 p-2" style="background:#fdf2f2; border-radius:4px;"><i class="bi bi-x-circle"></i> No physical copies available anywhere. Cannot issue.</div>';
+            }
+            issueBtn.disabled = true;
+          });
+      } else {
+        availDiv.innerHTML = '<div class="text-success small mt-2 p-2" style="background:#f0f9f4; border-radius:4px;"><i class="bi bi-check-circle"></i> ' + copies.length + ' physical copy(s) available in <strong>' + libName + '</strong></div>';
+        issueBtn.disabled = false;
       }
+    })
+    .catch(function(err) {
+      availDiv.innerHTML = '<div class="text-danger small mt-1">Error checking availability</div>';
     });
 }
 </script>
 {% endblock %}
+
+
+
+
+
+
 
 
 

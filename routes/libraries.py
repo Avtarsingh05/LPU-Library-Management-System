@@ -110,3 +110,21 @@ def get_available_copies(lib_id, book_id):
         'id': c.id,
         'condition': c.condition
     } for c in available_in_lib])
+@libraries_bp.route('/books/<book_id>/availability', methods=['GET'])
+@login_required
+def get_book_availability_across_libraries(book_id):
+    from models.book_copy import BookCopy
+    from models.library import Library
+    all_copies = BookCopy.get_by_book(book_id)
+    avail_counts = {}
+    for c in all_copies:
+        if c.status == 'AVAILABLE':
+            avail_counts[c.library_id] = avail_counts.get(c.library_id, 0) + 1
+            
+    result = []
+    for lid, count in avail_counts.items():
+        lib = Library.get_by_id(lid)
+        if lib:
+            result.append({'library_id': lid, 'library_name': lib.name, 'available_copies': count})
+            
+    return jsonify(result)

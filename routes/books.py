@@ -247,6 +247,22 @@ def edit(id):
                 flash(f"Cover image upload failed: {e}", 'warning')
 
         diff = total_copies - book.total_copies
+        if diff > 0:
+            from models.book_copy import BookCopy
+            import uuid
+            existing_copies = BookCopy.get_by_book(book.id)
+            from models.library import Library
+            libs = Library.get_all()
+            target_lib = existing_copies[0].library_id if existing_copies else (libs[0].id if libs else 'unknown')
+            for i in range(diff):
+                copy_id = f"{target_lib}-{isbn}-{str(uuid.uuid4())[:8].upper()}"
+                BookCopy(
+                    id=copy_id, book_id=book.id, library_id=target_lib,
+                    status='AVAILABLE', condition='GOOD', rack=shelf_location
+                ).save()
+        elif diff < 0:
+            flash("Warning: Decreasing total copies does not automatically delete physical inventory records.", "warning")
+
         book.update(
             isbn=isbn, title=title, author=author, category=category,
             publisher=publisher, publication_year=publication_year,
@@ -297,3 +313,59 @@ def search():
         'available': b.available_copies > 0,
         'available_copies': b.available_copies
     } for b in results])
+
+
+@books_bp.route('/sync_inventory', methods=['GET'])
+@admin_required
+def sync_inventory():
+    from models.book_copy import BookCopy
+    from models.issue import Issue
+    from models.library import Library
+    import uuid
+    
+    books = Book.get_all()
+    libs = Library.get_all()
+    valid_lib_ids = [l.id for l in libs]
+    default_lib = valid_lib_ids[0] if valid_lib_ids else 'unknown'
+    
+    fixed_count = 0
+    for b in books:
+        all_copies = BookCopy.get_by_book(b.id)
+        
+        for c in all_copies:
+            # Fix orphaned copies from previous script
+            if c.library_id not in valid_lib_ids:
+                c.update(library_id=default_lib)
+            
+            # Free stuck issues
+            if c.status == 'ISSUED':
+                active_issues = Issue.get_all()
+                has_active = any(i.copy_id == c.id and i.status == 'issued' for i in active_issues)
+                if not has_active:
+                    c.update(status='AVAILABLE')
+                    
+        # Refresh copies after fixes
+        all_copies = BookCopy.get_by_book(b.id)
+        expected_total = b.total_copies
+        
+        if len(all_copies) < expected_total:
+            diff = expected_total - len(all_copies)
+            target_lib = all_copies[0].library_id if all_copies else default_lib
+            for i in range(diff):
+                copy_id = f"{target_lib}-{b.isbn}-{str(uuid.uuid4())[:8].upper()}"
+                BookCopy(
+                    id=copy_id, book_id=b.id, library_id=target_lib,
+                    status='AVAILABLE', condition='GOOD', rack=b.shelf_location
+                ).save()
+            fixed_count += diff
+            
+        all_copies_now = BookCopy.get_by_book(b.id)
+        true_avail = len([c for c in all_copies_now if c.status == 'AVAILABLE'])
+        if b.available_copies != true_avail:
+            b.update(available_copies=true_avail)
+            
+    flash(f'Inventory perfectly synced! Fixed library IDs, freed stuck copies, and generated {fixed_count} missing physical copies.', 'success')
+    return redirect(url_for('books.index'))
+
+
+

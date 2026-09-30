@@ -160,7 +160,7 @@ def issue_book():
         @firestore.transactional
         def process_issue(transaction):
             if copy:
-                copy_ref = db.collection('book_copies').document(copy.id)
+                copy_ref = db.collection('bookCopies').document(copy.id)
                 copy_snap = copy_ref.get(transaction=transaction)
                 if not copy_snap.exists or copy_snap.get('status') != 'AVAILABLE':
                     return False, "This physical copy is not available."
@@ -306,7 +306,7 @@ def return_book():
             
             copy_ref = None
             if issue.copy_id:
-                copy_ref = db.collection('book_copies').document(issue.copy_id)
+                copy_ref = db.collection('bookCopies').document(issue.copy_id)
                 copy_snap = copy_ref.get(transaction=transaction)
 
             # Update Issue
@@ -375,3 +375,4 @@ def return_book():
 
     return render_template('issues/return.html',
                            active_issues=active_issues, today=today, search=search)
+
