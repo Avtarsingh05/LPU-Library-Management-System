@@ -51,7 +51,9 @@ def waive(id):
     flash(f'Fine of ₹{fine.amount:.2f} has been waived.', 'info')
     return redirect(url_for('fines.index'))
 from routes.auth import login_required
-import razorpay
+import requests as req
+import hmac
+import hashlib
 from flask import current_app, jsonify, session
 from models.member import Member
 
@@ -74,7 +76,6 @@ def create_order():
         key_secret = current_app.config.get('RAZORPAY_KEY_SECRET')
         
         if not key_id or not key_secret or 'your_' in key_id:
-            # Fallback for development without Razorpay keys
             return jsonify({
                 'id': 'order_dummy_123',
                 'amount': int(total_amount * 100),
@@ -82,10 +83,14 @@ def create_order():
                 'dummy': True
             })
             
-        client = razorpay.Client(auth=(key_id, key_secret))
+        auth = (key_id, key_secret)
         data = { "amount": int(total_amount * 100), "currency": "INR", "receipt": f"receipt_{member.id}" }
-        payment = client.order.create(data=data)
         
+        r = req.post("https://api.razorpay.com/v1/orders", json=data, auth=auth, timeout=10)
+        if r.status_code != 200:
+            return jsonify({'error': f'Razorpay API error: {r.text}'}), 400
+            
+        payment = r.json()
         return jsonify({
             'id': payment['id'],
             'amount': payment['amount'],
@@ -107,7 +112,6 @@ def verify_payment():
         key_id = current_app.config.get('RAZORPAY_KEY_ID')
         key_secret = current_app.config.get('RAZORPAY_KEY_SECRET')
         
-        # Security: Only allow dummy bypass if keys are EXPLICITLY not configured on the server
         if data.get('dummy') and (not key_id or not key_secret or 'your_' in key_id):
             pending_fines = Fine.get_by_member(member.id, status='pending')
             for f in pending_fines:
@@ -121,13 +125,15 @@ def verify_payment():
         elif data.get('dummy'):
             return jsonify({'status': 'failed', 'error': 'Dummy payments are disabled in production'}), 403
             
-        client = razorpay.Client(auth=(key_id, key_secret))
+        order_id = data.get('razorpay_order_id', '')
+        payment_id = data.get('razorpay_payment_id', '')
+        signature = data.get('razorpay_signature', '')
         
-        client.utility.verify_payment_signature({
-            'razorpay_order_id': data['razorpay_order_id'],
-            'razorpay_payment_id': data['razorpay_payment_id'],
-            'razorpay_signature': data['razorpay_signature']
-        })
+        msg = f"{order_id}|{payment_id}"
+        generated_sig = hmac.new(key_secret.encode('utf-8'), msg.encode('utf-8'), hashlib.sha256).hexdigest()
+        
+        if not hmac.compare_digest(generated_sig, signature):
+            return jsonify({'status': 'failed', 'error': 'Invalid payment signature'}), 400
         
         pending_fines = Fine.get_by_member(member.id, status='pending')
         for f in pending_fines:
@@ -141,4 +147,5 @@ def verify_payment():
         return jsonify({'status': 'success'})
     except Exception as e:
         return jsonify({'status': 'failed', 'error': str(e)}), 400
+
 
