@@ -567,3 +567,8 @@ def update_fine(id, fine_id):
             flash('Invalid deduction amount.', 'danger')
             
     return redirect(url_for('members.view', id=id))
+
+@members_bp.route('/settings')
+@login_required
+def settings():
+    return render_template('members/settings.html')

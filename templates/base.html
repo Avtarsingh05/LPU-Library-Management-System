@@ -233,6 +233,9 @@
             <a href="{{ url_for('members.profile') }}" class="notif-item" style="text-decoration:none; color:inherit; display:flex; align-items:center; gap:0.6rem;">
               <i class="bi bi-person-circle" style="color:var(--primary); font-size:1.1rem;"></i> My Profile
             </a>
+            <a href="{{ url_for('members.settings') }}" class="notif-item" style="text-decoration:none; color:inherit; display:flex; align-items:center; gap:0.6rem;">
+              <i class="bi bi-gear" style="color:var(--primary); font-size:1.1rem;"></i> Settings
+            </a>
             <div class="notif-item" id="darkModeToggleBtn" style="cursor:pointer; display:flex; align-items:center; gap:0.6rem;">
               <i id="darkModeIcon" class="bi bi-moon-stars" style="color:var(--primary); font-size:1.1rem;"></i> 
               <span id="darkModeText">Dark Mode</span>
@@ -408,6 +411,7 @@
 </script>
 </body>
 </html>
+
 
 
 

@@ -1,0 +1,74 @@
+﻿{% extends 'base.html' %}
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="page-header mb-4">
+  <div class="breadcrumb">
+    <a href="{{ url_for('dashboard.index') }}">Home</a> <i class="bi bi-chevron-right"></i> Settings
+  </div>
+  <div class="header-content mt-2">
+    <h2><i class="bi bi-gear" style="color:var(--primary);"></i> Settings</h2>
+  </div>
+</div>
+
+<div class="layout-content-sidebar">
+  <div class="main-content">
+    <!-- Privacy Policy Section -->
+    <div class="card mb-4" id="privacy">
+      <div class="card-header">
+        <h5 class="m-0"><i class="bi bi-shield-lock text-primary"></i> Privacy Policy</h5>
+      </div>
+      <div class="card-body">
+        <h6>1. Information We Collect</h6>
+        <p class="text-secondary text-sm">We collect basic profile information (name, email, ID) to manage your library account and track book issuances securely.</p>
+        
+        <h6>2. Data Usage</h6>
+        <p class="text-secondary text-sm">Your data is strictly used for library administration (sending due date reminders, calculating fines, and managing inventory). We do not sell or share your data with third parties.</p>
+        
+        <h6>3. Data Security</h6>
+        <p class="text-secondary text-sm">All sensitive credentials and personal data are encrypted and securely stored in Google Firebase. Passwords are never stored in plain text.</p>
+      </div>
+    </div>
+
+    <!-- Terms of Service Section -->
+    <div class="card mb-4" id="terms">
+      <div class="card-header">
+        <h5 class="m-0"><i class="bi bi-file-earmark-text text-primary"></i> Terms of Service</h5>
+      </div>
+      <div class="card-body">
+        <h6>1. Borrowing Rules</h6>
+        <p class="text-secondary text-sm">Members must return borrowed books on or before the due date. A maximum limit of 5 concurrent books applies to all student accounts.</p>
+        
+        <h6>2. Fines and Penalties</h6>
+        <p class="text-secondary text-sm">Overdue books incur a daily fine. Any physical damage or loss of a book will result in a manual penalty fee equivalent to the book's replacement value.</p>
+        
+        <h6>3. Account Suspension</h6>
+        <p class="text-secondary text-sm">The library administration reserves the right to suspend any account that repeatedly violates borrowing guidelines or attempts to circumvent the payment gateway.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar-content">
+    <!-- Support Section -->
+    <div class="card mb-4" id="support">
+      <div class="card-header">
+        <h5 class="m-0"><i class="bi bi-headset text-primary"></i> Support & Help</h5>
+      </div>
+      <div class="card-body text-center py-4">
+        <i class="bi bi-person-workspace" style="font-size: 3rem; color: var(--primary); margin-bottom: 1rem; display: inline-block;"></i>
+        <h6 class="mb-3">Need Assistance?</h6>
+        <p class="text-sm text-secondary mb-4">If you are facing issues with your account, book issuances, or fine payments, our team is here to help you.</p>
+        
+        <div class="d-flex flex-column gap-2 text-start">
+          <a href="tel:+918630070204" class="btn btn-light w-100" style="display:flex; align-items:center; gap:0.5rem; justify-content:center;">
+            <i class="bi bi-telephone text-primary"></i> +91 8630070204
+          </a>
+          <a href="mailto:forigloohelp@gmail.com" class="btn btn-light w-100" style="display:flex; align-items:center; gap:0.5rem; justify-content:center;">
+            <i class="bi bi-envelope text-primary"></i> forigloohelp@gmail.com
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
