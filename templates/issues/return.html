@@ -82,7 +82,8 @@
                   <option value="DAMAGED">Damaged</option>
                   <option value="LOST">Lost</option>
                 </select>
-                <button type="submit" class="btn btn-sm btn-success" title="Mark as Returned">
+                <input type="number" name="manual_fine" placeholder="? Fine" style="width:70px;padding:0.3rem 0.5rem;border:1px solid #dee2e6;border-radius:6px;font-size:0.8rem;" min="0" step="1" title="Add manual fine (e.g. for damage/loss)">
+                <button type="submit" class="btn btn-sm btn-success" title="Process Return">
                   <i class="bi bi-arrow-return-left"></i>
                 </button>
               </form>
@@ -121,3 +122,4 @@ var s = document.getElementById('searchInput');
 var t; s.addEventListener('input', function() { clearTimeout(t); t = setTimeout(function() { window.location.href = '?search=' + encodeURIComponent(s.value); }, 500); });
 </script>
 {% endblock %}
+

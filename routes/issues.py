@@ -376,3 +376,4 @@ def return_book():
     return render_template('issues/return.html',
                            active_issues=active_issues, today=today, search=search)
 
+
