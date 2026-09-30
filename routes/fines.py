@@ -104,21 +104,23 @@ def verify_payment():
         user_email = session.get('user_email')
         member = Member.get_by_email(user_email)
         
-        if data.get('dummy'):
-            # Process dummy payment
+        key_id = current_app.config.get('RAZORPAY_KEY_ID')
+        key_secret = current_app.config.get('RAZORPAY_KEY_SECRET')
+        
+        # Security: Only allow dummy bypass if keys are EXPLICITLY not configured on the server
+        if data.get('dummy') and (not key_id or not key_secret or 'your_' in key_id):
             pending_fines = Fine.get_by_member(member.id, status='pending')
             for f in pending_fines:
                 f.update(status='paid', paid_date=datetime.utcnow())
-                # also clear on issue
                 if f.issue_id:
                     from models.issue import Issue
                     issue = Issue.get_by_id(f.issue_id)
                     if issue:
                         issue.update(fine_amount=0)
             return jsonify({'status': 'success'})
+        elif data.get('dummy'):
+            return jsonify({'status': 'failed', 'error': 'Dummy payments are disabled in production'}), 403
             
-        key_id = current_app.config.get('RAZORPAY_KEY_ID')
-        key_secret = current_app.config.get('RAZORPAY_KEY_SECRET')
         client = razorpay.Client(auth=(key_id, key_secret))
         
         client.utility.verify_payment_signature({
@@ -139,3 +141,4 @@ def verify_payment():
         return jsonify({'status': 'success'})
     except Exception as e:
         return jsonify({'status': 'failed', 'error': str(e)}), 400
+
