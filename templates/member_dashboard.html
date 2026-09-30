@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 {% block title %}My Dashboard{% endblock %}
 
 {% block content %}
@@ -64,6 +64,97 @@
     </div>
   </div>
 </div>
+
+{% if outstanding_fines > 0 %}
+<div style="background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.3); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+  <div style="display:flex; align-items:center; gap:0.75rem;">
+    <i class="bi bi-exclamation-circle" style="font-size: 1.5rem; color:#e74c3c;"></i>
+    <div>
+      <div style="font-weight:600; color:#c0392b; font-size:1.1rem;">You have pending fines of ₹{{ '%.0f'|format(outstanding_fines) }}</div>
+      <div style="font-size:0.85rem; color:#e74c3c; margin-top:0.2rem;">Please clear your dues to continue borrowing books smoothly.</div>
+    </div>
+  </div>
+  <button id="payFineBtn" class="btn btn-danger px-4 fw-bold" style="border-radius: 20px;">Pay Now</button>
+</div>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+document.getElementById('payFineBtn').onclick = function(e) {
+  e.preventDefault();
+  const btn = this;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+  
+  fetch('{{ url_for("fines.create_order") }}', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'}
+  })
+  .then(res => res.json())
+  .then(data => {
+    if(data.error) {
+      alert(data.error);
+      btn.disabled = false;
+      btn.innerHTML = 'Pay Now';
+      return;
+    }
+    
+    if (data.dummy) {
+      alert("Dummy Payment Simulation! Assuming payment successful.");
+      fetch('{{ url_for("fines.verify_payment") }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({dummy: true})
+      }).then(() => window.location.reload());
+      return;
+    }
+    
+    var options = {
+      "key": data.key,
+      "amount": data.amount,
+      "currency": data.currency,
+      "name": "{{ library_name }}",
+      "description": "Library Fine Payment",
+      "order_id": data.id,
+      "handler": function (response){
+          fetch('{{ url_for("fines.verify_payment") }}', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(response)
+          }).then(res => res.json())
+            .then(resData => {
+              if (resData.status === 'success') {
+                alert('Payment successful!');
+                window.location.reload();
+              } else {
+                alert('Payment verification failed: ' + resData.error);
+              }
+            });
+      },
+      "prefill": {
+          "name": "{{ current_user.name }}",
+          "email": "{{ current_user.email }}"
+      },
+      "theme": {
+          "color": "#3498db"
+      }
+    };
+    var rzp = new Razorpay(options);
+    rzp.on('payment.failed', function (response){
+            alert(response.error.description);
+    });
+    rzp.open();
+    btn.disabled = false;
+    btn.innerHTML = 'Pay Now';
+  })
+  .catch(err => {
+    console.error(err);
+    alert('Something went wrong!');
+    btn.disabled = false;
+    btn.innerHTML = 'Pay Now';
+  });
+};
+</script>
+{% endif %}
 
 <!-- Currently Borrowed -->
 {% if current_issues %}
@@ -180,5 +271,7 @@
 {% endif %}
 
 {% endblock %}
+
+
 
 
