@@ -511,3 +511,59 @@ def update_profile():
     flash('Profile updated successfully!', 'success')
     return redirect(url_for('members.view', id=member.id))
 
+
+@members_bp.route('/<id>/add_fine', methods=['POST'])
+@admin_required
+def add_fine(id):
+    member = Member.get_by_id(id)
+    if not member:
+        flash('Member not found.', 'danger')
+        return redirect(url_for('members.index'))
+        
+    amount = request.form.get('amount')
+    reason = request.form.get('reason', 'Manual fine applied by admin')
+    
+    try:
+        amount = float(amount)
+        if amount <= 0:
+            raise ValueError
+    except (ValueError, TypeError):
+        flash('Invalid fine amount.', 'danger')
+        return redirect(url_for('members.view', id=id))
+        
+    fine = Fine(
+        member_id=id,
+        amount=amount,
+        reason=reason,
+        status='pending'
+    )
+    fine.save()
+    flash('Fine added successfully.', 'success')
+    return redirect(url_for('members.view', id=id))
+
+@members_bp.route('/<id>/update_fine/<fine_id>', methods=['POST'])
+@admin_required
+def update_fine(id, fine_id):
+    action = request.form.get('action') # 'waive' or 'deduct'
+    
+    fine = Fine.get_by_id(fine_id)
+    if not fine or fine.member_id != id:
+        flash('Fine not found.', 'danger')
+        return redirect(url_for('members.view', id=id))
+        
+    if action == 'waive':
+        fine.update(status='waived', paid_date=__import__('datetime').datetime.utcnow())
+        flash('Fine waived.', 'success')
+    elif action == 'deduct':
+        try:
+            deduct_amt = float(request.form.get('deduct_amount', 0))
+            if deduct_amt <= 0 or deduct_amt >= fine.amount:
+                flash('Deduction must be greater than 0 and less than current fine.', 'danger')
+            else:
+                new_amt = fine.amount - deduct_amt
+                fine.update(amount=new_amt)
+                flash(f'Fine deducted by ?{deduct_amt}. New amount: ?{new_amt}', 'success')
+        except ValueError:
+            flash('Invalid deduction amount.', 'danger')
+            
+    return redirect(url_for('members.view', id=id))
