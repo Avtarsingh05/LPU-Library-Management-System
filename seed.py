@@ -218,7 +218,7 @@ MEMBERS_DATA = [
 def seed_settings():
     """Seed default library settings."""
     defaults = {
-        'library_name': 'LPU Library',
+        'library_name': 'LibEase',
         'library_address': 'Lovely Professional University, Phagwara',
         'library_email': 'library@university.edu',
         'library_phone': '+91-9876543210',
@@ -511,4 +511,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 

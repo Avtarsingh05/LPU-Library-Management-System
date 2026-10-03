@@ -15,7 +15,7 @@ class Config:
     FIREBASE_APP_ID = os.environ.get('FIREBASE_APP_ID')
 
     # Library defaults (overridable via Firestore settings collection)
-    LIBRARY_NAME = 'LPU Library'
+    LIBRARY_NAME = 'LibEase'
     FINE_PER_DAY = 5
     MAX_BOOKS_PER_MEMBER = 5
     DEFAULT_BORROW_DAYS = 14
@@ -34,4 +34,5 @@ config = {
     'production': ProductionConfig,
     'default': DevelopmentConfig,
 }
+
 
