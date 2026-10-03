@@ -1,0 +1,32 @@
+﻿{% extends 'base.html' %}
+{% block title %}Terms of Service{% endblock %}
+
+{% block content %}
+<div class="page-header mb-4">
+  <div class="breadcrumb">
+    <a href="{{ url_for('dashboard.index') }}">Home</a> <i class="bi bi-chevron-right"></i>
+    <a href="{{ url_for('members.settings') }}">Settings</a> <i class="bi bi-chevron-right"></i> Terms of Service
+  </div>
+  <div class="header-content mt-2">
+    <h2><i class="bi bi-file-earmark-text" style="color:var(--primary);"></i> Terms of Service</h2>
+  </div>
+</div>
+
+<div class="card mb-4" style="max-width: 800px;">
+  <div class="card-body" style="padding: 2rem;">
+    <h5 class="mb-4">Library Terms and Conditions</h5>
+    
+    <h6 class="mt-4">1. Borrowing Rules</h6>
+    <p class="text-secondary">Members must return borrowed books on or before the specified due date. A maximum limit of 5 concurrent books applies to all student accounts unless explicitly overridden by the administration.</p>
+    
+    <h6 class="mt-4">2. Fines and Penalties</h6>
+    <p class="text-secondary">Overdue books incur a daily fine that accumulates until the book is returned or marked as lost. Any physical damage, defacement, or loss of a book will result in a manual penalty fee equivalent to the book's replacement value plus administrative costs.</p>
+    
+    <h6 class="mt-4">3. E-Library Usage</h6>
+    <p class="text-secondary">Digital resources available in the E-Library section are for personal, educational use only. Unauthorized distribution, copying, or commercial use of these materials is strictly prohibited and may result in immediate account termination.</p>
+    
+    <h6 class="mt-4">4. Account Suspension</h6>
+    <p class="text-secondary">The library administration reserves the right to suspend or terminate any account that repeatedly violates borrowing guidelines, fails to clear outstanding dues, or attempts to circumvent the payment gateway or access controls.</p>
+  </div>
+</div>
+{% endblock %}

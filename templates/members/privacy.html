@@ -1,0 +1,32 @@
+﻿{% extends 'base.html' %}
+{% block title %}Privacy Policy{% endblock %}
+
+{% block content %}
+<div class="page-header mb-4">
+  <div class="breadcrumb">
+    <a href="{{ url_for('dashboard.index') }}">Home</a> <i class="bi bi-chevron-right"></i>
+    <a href="{{ url_for('members.settings') }}">Settings</a> <i class="bi bi-chevron-right"></i> Privacy Policy
+  </div>
+  <div class="header-content mt-2">
+    <h2><i class="bi bi-shield-lock" style="color:var(--primary);"></i> Privacy Policy</h2>
+  </div>
+</div>
+
+<div class="card mb-4" style="max-width: 800px;">
+  <div class="card-body" style="padding: 2rem;">
+    <h5 class="mb-4">Our Commitment to Privacy</h5>
+    
+    <h6 class="mt-4">1. Information We Collect</h6>
+    <p class="text-secondary">We collect basic profile information (such as your name, email address, and student/staff ID) in order to securely manage your library account and track book issuances.</p>
+    
+    <h6 class="mt-4">2. Data Usage</h6>
+    <p class="text-secondary">Your data is strictly used for core library administration. This includes sending due date reminders, calculating fines for overdue or damaged books, and managing the overall inventory. We absolutely do not sell, trade, or otherwise share your data with any third parties.</p>
+    
+    <h6 class="mt-4">3. Data Security</h6>
+    <p class="text-secondary">All sensitive credentials and personal data are encrypted and securely stored in Google Firebase. Passwords are never stored in plain text. We utilize secure payment gateways (Razorpay) which handle their own encryption for all financial transactions, meaning we never store your card details.</p>
+    
+    <h6 class="mt-4">4. Your Rights</h6>
+    <p class="text-secondary">You have the right to request access to the personal data we hold about you and to ask for corrections if the data is inaccurate. To exercise these rights, please contact the library administration via the Support section on the Settings page.</p>
+  </div>
+</div>
+{% endblock %}

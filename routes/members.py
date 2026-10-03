@@ -572,3 +572,11 @@ def update_fine(id, fine_id):
 @login_required
 def settings():
     return render_template('members/settings.html')
+
+@members_bp.route('/privacy')
+def privacy():
+    return render_template('members/privacy.html')
+
+@members_bp.route('/terms')
+def terms():
+    return render_template('members/terms.html')

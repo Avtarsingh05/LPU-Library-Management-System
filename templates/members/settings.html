@@ -13,39 +13,34 @@
 
 <div class="layout-content-sidebar">
   <div class="main-content">
-    <!-- Privacy Policy Section -->
-    <div class="card mb-4" id="privacy">
+    
+    <!-- Quick Links Section -->
+    <div class="card mb-4">
       <div class="card-header">
-        <h5 class="m-0"><i class="bi bi-shield-lock text-primary"></i> Privacy Policy</h5>
+        <h5 class="m-0"><i class="bi bi-link-45deg text-primary"></i> Legal & Policies</h5>
       </div>
-      <div class="card-body">
-        <h6>1. Information We Collect</h6>
-        <p class="text-secondary text-sm">We collect basic profile information (name, email, ID) to manage your library account and track book issuances securely.</p>
-        
-        <h6>2. Data Usage</h6>
-        <p class="text-secondary text-sm">Your data is strictly used for library administration (sending due date reminders, calculating fines, and managing inventory). We do not sell or share your data with third parties.</p>
-        
-        <h6>3. Data Security</h6>
-        <p class="text-secondary text-sm">All sensitive credentials and personal data are encrypted and securely stored in Google Firebase. Passwords are never stored in plain text.</p>
+      <div class="card-body p-0">
+        <div class="list-group list-group-flush">
+          <a href="{{ url_for('members.privacy') }}" class="list-group-item list-group-item-action d-flex align-items-center" style="padding: 1.25rem; border-bottom: 1px solid var(--border); text-decoration: none; color: inherit;">
+            <i class="bi bi-shield-lock" style="font-size: 1.5rem; color: var(--primary); margin-right: 1rem;"></i>
+            <div>
+              <h6 class="mb-1">Privacy Policy</h6>
+              <p class="mb-0 text-secondary" style="font-size: 0.85rem;">Learn how we collect, use, and protect your data.</p>
+            </div>
+            <i class="bi bi-chevron-right ms-auto text-muted"></i>
+          </a>
+          <a href="{{ url_for('members.terms') }}" class="list-group-item list-group-item-action d-flex align-items-center" style="padding: 1.25rem; text-decoration: none; color: inherit;">
+            <i class="bi bi-file-earmark-text" style="font-size: 1.5rem; color: var(--primary); margin-right: 1rem;"></i>
+            <div>
+              <h6 class="mb-1">Terms of Service</h6>
+              <p class="mb-0 text-secondary" style="font-size: 0.85rem;">Read the rules, fines, and borrowing guidelines.</p>
+            </div>
+            <i class="bi bi-chevron-right ms-auto text-muted"></i>
+          </a>
+        </div>
       </div>
     </div>
-
-    <!-- Terms of Service Section -->
-    <div class="card mb-4" id="terms">
-      <div class="card-header">
-        <h5 class="m-0"><i class="bi bi-file-earmark-text text-primary"></i> Terms of Service</h5>
-      </div>
-      <div class="card-body">
-        <h6>1. Borrowing Rules</h6>
-        <p class="text-secondary text-sm">Members must return borrowed books on or before the due date. A maximum limit of 5 concurrent books applies to all student accounts.</p>
-        
-        <h6>2. Fines and Penalties</h6>
-        <p class="text-secondary text-sm">Overdue books incur a daily fine. Any physical damage or loss of a book will result in a manual penalty fee equivalent to the book's replacement value.</p>
-        
-        <h6>3. Account Suspension</h6>
-        <p class="text-secondary text-sm">The library administration reserves the right to suspend any account that repeatedly violates borrowing guidelines or attempts to circumvent the payment gateway.</p>
-      </div>
-    </div>
+    
   </div>
 
   <div class="sidebar-content">
